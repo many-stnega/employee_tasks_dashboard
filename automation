@@ -1,0 +1,4 @@
+#!/bin/bash
+
+docker run and mount employee_tasks_dashboard/ folder
+

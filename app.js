@@ -55,7 +55,7 @@ function card(task) {
   const article = node('article', 'task-card');
   const top = node('div', 'card-top');
   const repo = node('div');
-  repo.append(node('span', 'field-label', 'GitHub Repo'), linkOrText(task.repo.name, task.repo.url, 'repo'));
+  repo.append(node('span', 'field-label', 'Task'), linkOrText(task.repo.name, task.repo.url, 'repo'));
   const employee = node('div', 'employee');
   const username = (task.assigned_to.username || '').replace(/^@/, '');
   const profile = /^[a-zA-Z0-9_]{5,32}$/.test(username) ? `https://t.me/${username}` : undefined;
@@ -63,7 +63,7 @@ function card(task) {
   top.append(repo, employee);
   const body = node('div', 'description-columns');
   const assignment = node('section', 'description assignment');
-  assignment.append(node('span', 'field-label', 'Task / Description'), node('p', '', task.description));
+  assignment.append(node('span', 'field-label', 'Description'), node('p', '', task.description));
   const report = node('section', 'description employee-report');
   report.append(node('span', 'field-label', 'Employee Report'));
   if (task.employee_report?.description?.trim()) {
