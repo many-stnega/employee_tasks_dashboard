@@ -8,7 +8,6 @@ import json
 import os
 from pathlib import Path
 import tempfile
-from urllib.parse import urlparse
 import re
 
 MMT = timezone(timedelta(hours=6, minutes=30))
@@ -33,13 +32,6 @@ def day(value):
 def nonempty(value):
     if not value.strip():
         raise argparse.ArgumentTypeError('Value must not be empty.')
-    return value
-
-
-def web_url(value):
-    parsed = urlparse(value)
-    if parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username or parsed.password:
-        raise argparse.ArgumentTypeError('Use an HTTP(S) URL without credentials.')
     return value
 
 
@@ -71,9 +63,21 @@ def load(folder, key):
         ids.add(task['id'])
         if not isinstance(task.get('description'), str):
             raise ValueError(f'Missing description for {task["id"]}')
-        for field in ('repo', 'assigned_to'):
-            if not isinstance(task.get(field), dict) or not isinstance(task[field].get('name'), str):
-                raise ValueError(f'Invalid {field} for {task["id"]}')
+        if not (
+            isinstance(task.get('task'), str)
+            or isinstance(task.get('repo'), dict) and isinstance(task['repo'].get('name'), str)
+        ):
+            raise ValueError(f'Missing task name for {task["id"]}')
+        assigned_to = task.get('assigned_to')
+        if not (
+            isinstance(assigned_to, str)
+            or isinstance(assigned_to, dict)
+            and (
+                isinstance(assigned_to.get('username'), str)
+                or isinstance(assigned_to.get('name'), str)
+            )
+        ):
+            raise ValueError(f'Invalid assigned_to for {task["id"]}')
         report = task.get('employee_report')
         if report is not None:
             if not isinstance(report, dict) or not isinstance(report.get('description'), str):
@@ -119,12 +123,9 @@ def main():
     commands = parser.add_subparsers(dest='command', required=True)
     assign_task = commands.add_parser('assign_task', help='Create or update an assignment, preserving its employee report.')
     assign_task.add_argument('--id', required=True, type=nonempty)
-    assign_task.add_argument('--task', required=True, type=nonempty, help='Task/repository name displayed on the card.')
-    assign_task.add_argument('--url', type=web_url)
-    assign_task.add_argument('--employee', required=True, type=nonempty)
-    assign_task.add_argument('--username', type=username)
+    assign_task.add_argument('--task', required=True, type=nonempty, help='Task name displayed on the card.')
+    assign_task.add_argument('--username', required=True, type=username)
     assign_task.add_argument('--description', required=True, type=nonempty)
-    assign_task.add_argument('--replace-demo', action='store_true', help='Explicitly discard sample tasks in this daily file.')
     report = commands.add_parser('report', help='Record an employee reply for an existing task.')
     report.add_argument('--id', required=True, type=nonempty)
     report.add_argument('--description', required=True, type=nonempty)
@@ -141,18 +142,16 @@ def main():
                 print(json.dumps(data, ensure_ascii=False, indent=2))
                 return
             if data.get('demo'):
-                if args.command == 'assign_task' and args.replace_demo:
-                    data = {'date': args.date, 'tasks': []}
-                else:
-                    raise ValueError('Sample file: use assign_task --replace-demo to replace it explicitly, or choose another date.')
+                raise ValueError('Sample file: choose a date without sample data before updating it.')
             now = datetime.now(MMT).isoformat(timespec='seconds')
             task = next((item for item in data['tasks'] if item['id'] == args.id), None)
             if args.command == 'assign_task':
                 if task is None:
                     task = {'id': args.id}
                     data['tasks'].append(task)
-                task['repo'] = {'name': args.task, **({'url': args.url} if args.url else {})}
-                task['assigned_to'] = {'name': args.employee, **({'username': args.username} if args.username else {})}
+                task.pop('repo', None)
+                task['task'] = args.task
+                task['assigned_to'] = {'username': args.username}
                 task['description'] = args.description
             elif args.command == 'report':
                 if task is None:
@@ -160,7 +159,21 @@ def main():
                 reported = timestamp(args.reported_at or now).astimezone(MMT)
                 if reported.date().isoformat() != args.date:
                     raise ValueError('Report timestamp must fall on --date in Myanmar time.')
-                task['employee_report'] = {'description': args.description, 'reported_at': reported.isoformat(timespec='seconds')}
+                previous_report = task.get('employee_report')
+                previous_description = (
+                    previous_report.get('description', '').strip()
+                    if isinstance(previous_report, dict)
+                    else ''
+                )
+                combined_description = (
+                    f'{previous_description}\n\n{args.description}'
+                    if previous_description
+                    else args.description
+                )
+                task['employee_report'] = {
+                    'description': combined_description,
+                    'reported_at': reported.isoformat(timespec='seconds'),
+                }
             elif args.command == 'carry':
                 if args.from_date >= args.date:
                     raise ValueError('--from-date must be earlier than --date.')
@@ -173,7 +186,25 @@ def main():
                 original = next((item for item in source['tasks'] if item['id'] == args.id), None)
                 if original is None:
                     raise ValueError('Source task not found.')
-                task = {key: original[key] for key in ('id', 'repo', 'assigned_to', 'description')}
+                task_name = original.get('task')
+                if task_name is None:
+                    task_name = original['repo']['name']
+                assigned_to = original['assigned_to']
+                if isinstance(assigned_to, dict):
+                    username_value = assigned_to.get('username')
+                    task_assignee = (
+                        {'username': username_value}
+                        if username_value
+                        else {'name': assigned_to.get('name', 'Unknown')}
+                    )
+                else:
+                    task_assignee = {'username': assigned_to.lstrip('@')}
+                task = {
+                    'id': original['id'],
+                    'task': task_name,
+                    'assigned_to': task_assignee,
+                    'description': original['description'],
+                }
                 data['tasks'].append(task)
             task['updated_at'] = now
             data['updated_at'] = now

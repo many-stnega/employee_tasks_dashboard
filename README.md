@@ -95,7 +95,7 @@ These are the commands currently implemented in the bot:
 | `/whoami` | Show the caller's Telegram user ID and chat ID. | Anyone who can message the bot |
 | `/task_assign` | Start a guided task assignment, asking one question at a time. | Users in `TELEGRAM_TASK_ASSIGN_USER_IDS`, in allowed chats |
 | `/task_lists` | Show today's tasks, assignments, and employee reports. | Both user lists, in allowed chats |
-| `/report` | Record an employee report for a task assigned today. | Both user lists, in allowed chats |
+| `/report` | Choose today's task and record an employee report. | Both user lists, in allowed chats |
 | `/carry` | Carry an unfinished task from an earlier date into today's log. | Users in `TELEGRAM_TASK_ASSIGN_USER_IDS`, in allowed chats |
 
 To show these in Telegram's command menu, open **@BotFather**, send `/setcommands`,
@@ -106,20 +106,27 @@ start - Start the bot and show the caller's access level.
 whoami - Show the caller's Telegram user ID and chat ID.
 task_assign - Start the guided task assignment.
 task_lists - Show today's tasks, assignments, and employee reports.
-report - Record an employee report for a task assigned today.
+report - Choose a task and record an employee report.
 carry - Carry an unfinished task from an earlier date into today's log.
-cancel - Cancel the current task assignment.
+cancel - Cancel the current task assignment or report.
 ```
 
 The BotFather menu only displays commands; actual access is enforced by this
-bot. Send `/task_assign`, then answer the bot's questions one at a time: task
-ID, task/repository name, employee name, Telegram username, URL, whether to
-replace today's sample tasks, and task description. Enter `-` to skip the
-optional username or URL. Answer `yes` to replace sample tasks only if you
-intend to discard that day's sample preview records; otherwise answer `no`.
-You can send a multi-line answer for the description. Send `/cancel` at any
-time to stop without saving. Only users in `TELEGRAM_TASK_ASSIGN_USER_IDS`
-can start or continue this flow.
+bot. Send `/task_assign`, enter the task name, choose an employee from the
+Telegram username buttons, then enter the description. The bot generates the
+task ID automatically. It does not ask for a repository, URL, or sample-task
+replacement. Employees must have a Telegram username and have started the bot
+to appear as assignable users.
+
+The saved task contains its name, the assigned employee's username, its
+description, and any employee report. After saving, the bot sends a formatted
+task name and description directly to the selected employee's Telegram user ID;
+the internal task ID is not included in that message. Employees must open the
+bot and send `/start` before the bot can send them a private message.
+If Telegram delivery fails, the task remains saved and the assigning user is
+told that the direct message was not delivered.
+Send `/cancel` at any time to stop without saving. Only users in
+`TELEGRAM_TASK_ASSIGN_USER_IDS` can start or continue this flow.
 
 Show all tasks for today:
 
@@ -134,13 +141,12 @@ Report progress on a task in today's log:
 
 ```text
 /report
-ID: task-001
-Description: API implementation is complete.
-Integration tests are in progress.
 ```
 
-Both user lists can use `/report` in an allowed chat. The new report replaces
-the previous report for that task for today.
+The bot shows today's tasks as buttons. Tap a task to select it, then send the
+report text; it can span multiple lines. Each new report is appended after the
+previous report for that task. Send `/cancel` to stop without saving. Both user
+lists can use `/report` in an allowed chat.
 
 Carry an unfinished task from an earlier date into today's log:
 

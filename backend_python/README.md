@@ -9,18 +9,21 @@ Global options (`--date`, `--data-dir`) go **before** the subcommand. Without `-
 ```bash
 python3 backend_python/update_tasks.py --date 2026-11-25 assign_task \
   --id task-001 \
-  --task workspace_bridge \
-  --url https://github.com/your-org/workspace_bridge \
-  --employee 'Employee Name' \
+  --task 'Implement the login API' \
   --username employee_username \
   --description 'Continue the login API implementation and run integration tests.'
 ```
 
-Use a real repository URL and Telegram username, or omit `--url` and `--username`. `--task` is the card title; its storage key remains `repo.name`. Assigned by is always displayed as Office Manager Agent.
+An assignment stores the task name, Telegram username, and description; it has
+no repository or URL field. The `assigned_to` record contains only the username.
 
-Reuse the same `--id` to update a task, without creating duplicates. Supply all assignment fields on each assign_task; omitted URL/username values are removed. Existing employee reports are preserved. Use a new task ID when assigning different work or changing the employee, so an old employee's report is not attributed to a new employee.
+Reuse the same `--id` to update a task, without creating duplicates. Supply all
+assignment fields on each `assign_task`; existing employee reports are
+preserved. Use a new task ID when assigning different work or changing the
+employee, so an old employee's report is not attributed to a new employee.
 
-Sample files are protected against accidental mixing with real work. To explicitly replace all sample tasks for a date, add `--replace-demo` to the first `assign_task`. It never clears a non-demo file.
+Sample files are protected against accidental mixing with real work and cannot
+be updated by assignment commands.
 
 ## Record an employee report
 
@@ -31,7 +34,10 @@ python3 backend_python/update_tasks.py --date 2026-11-25 report \
   --reported-at '2026-11-25T16:00:00+06:30'
 ```
 
-The report appears in the right-hand Employee Report column. The assignment description stays intact. Omit `--reported-at` for the current time. Historical reports must specify their actual timestamp, falling on the selected date in Myanmar time. A later report replaces the displayed report for that day; keep message history in the agent's internal records and commit each update if Git history is required.
+The report appears in the right-hand Employee Report column. The assignment
+description stays intact, and each new report is appended after the previous
+report. Omit `--reported-at` for the current time. Historical reports must
+specify their actual timestamp, falling on the selected date in Myanmar time.
 
 ## Carry an unfinished task to another day
 

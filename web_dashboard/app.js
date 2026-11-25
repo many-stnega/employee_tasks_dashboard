@@ -1,8 +1,8 @@
 'use strict';
 // Daily files: { date: 'YYYY-MM-DD', updated_at: ISO timestamp, demo: boolean,
-// tasks: [{ id, repo: {name, url?}, assigned_to: {name, username?},
+// tasks: [{ id, task, assigned_to: {username},
 // description, employee_report?: {description, reported_at: ISO timestamp},
-// updated_at: ISO timestamp }] }. Assigned by is always the agent.
+// updated_at: ISO timestamp }] }. Legacy repo/name fields remain readable.
 // Dates and timestamps are displayed in Asia/Yangon. No credentials or writes.
 const TIME_ZONE = 'Asia/Yangon';
 const $ = id => document.getElementById(id);
@@ -54,13 +54,14 @@ function renderCalendar() {
 function card(task) {
   const article = node('article', 'task-card');
   const top = node('div', 'card-top');
-  const repo = node('div');
-  repo.append(node('span', 'field-label', 'Task'), linkOrText(task.repo.name, task.repo.url, 'repo'));
+  const taskTitle = node('div');
+  taskTitle.append(node('span', 'field-label', 'Task'), node('span', 'repo', task.task || task.repo?.name || 'Untitled task'));
   const employee = node('div', 'employee');
-  const username = (task.assigned_to.username || '').replace(/^@/, '');
+  const assignee = task.assigned_to;
+  const username = (typeof assignee === 'string' ? assignee : assignee.username || assignee.name || '').replace(/^@/, '');
   const profile = /^[a-zA-Z0-9_]{5,32}$/.test(username) ? `https://t.me/${username}` : undefined;
-  employee.append(node('span', 'field-label', 'Assigned to'), linkOrText(task.assigned_to.name, profile, 'person'));
-  top.append(repo, employee);
+  employee.append(node('span', 'field-label', 'Engineer'), linkOrText(`@${username}`, profile, 'person'));
+  top.append(taskTitle, employee);
   const body = node('div', 'description-columns');
   const assignment = node('section', 'description assignment');
   assignment.append(node('span', 'field-label', 'Description'), node('p', '', task.description));
@@ -101,10 +102,13 @@ function message(title, detail, retry = false) {
 }
 function validData(data, key) {
   return data && data.date === key && Array.isArray(data.tasks) && data.tasks.every(task =>
-    task && typeof task.id === 'string' && task.repo && typeof task.repo.name === 'string' &&
-    (task.repo.url === undefined || typeof task.repo.url === 'string') &&
-    task.assigned_to && typeof task.assigned_to.name === 'string' &&
-    (task.assigned_to.username === undefined || typeof task.assigned_to.username === 'string') &&
+    task && typeof task.id === 'string' &&
+    (typeof task.task === 'string' || task.repo && typeof task.repo.name === 'string') &&
+    (typeof task.assigned_to === 'string' || task.assigned_to &&
+      typeof task.assigned_to === 'object' &&
+      (task.assigned_to.username === undefined || typeof task.assigned_to.username === 'string') &&
+      (task.assigned_to.name === undefined || typeof task.assigned_to.name === 'string') &&
+      (typeof task.assigned_to.username === 'string' || typeof task.assigned_to.name === 'string')) &&
     typeof task.description === 'string' &&
     (task.employee_report == null || (typeof task.employee_report.description === 'string' &&
       typeof task.employee_report.reported_at === 'string' && Number.isFinite(Date.parse(task.employee_report.reported_at)))));
