@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-26",
+  "demo": true,
+  "updated_at": "2026-11-26T16:00:00+06:30",
+  "tasks": [
+    {
+      "id": "sample-001",
+      "repo": {
+        "name": "workspace_bridge"
+      },
+      "assigned_to": {
+        "name": "Employee A (sample)"
+      },
+      "description": "Continue the login API implementation. Check error handling and run integration tests.",
+      "updated_at": "2026-11-26T15:35:00+06:30",
+      "employee_report": {
+        "description": "Login API integration tests are complete.\nNext: review the test results before deployment.",
+        "reported_at": "2026-11-26T15:35:00+06:30"
+      }
+    },
+    {
+      "id": "sample-002",
+      "repo": {
+        "name": "GitHub Docs (sample link)",
+        "url": "https://github.com/github/docs"
+      },
+      "assigned_to": {
+        "name": "Employee B (sample)"
+      },
+      "description": "Review the setup documentation and update outdated instructions.",
+      "updated_at": "2026-11-26T14:20:00+06:30",
+      "employee_report": {
+        "description": "Documentation review is in progress.\nNext: confirm the remaining setup steps.",
+        "reported_at": "2026-11-26T14:20:00+06:30"
+      }
+    },
+    {
+      "id": "sample-003",
+      "repo": {
+        "name": "nginx_proxy"
+      },
+      "assigned_to": {
+        "name": "Employee C (sample)"
+      },
+      "description": "Check the deployment configuration and report any issues.",
+      "updated_at": "2026-11-26T16:00:00+06:30",
+      "employee_report": null
+    }
+  ]
+}

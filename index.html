@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Daily employee task logs coordinated by Office Manager Agent.">
+  <title>Employee Tasks · Daily log</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./"><span class="brand-icon" aria-hidden="true">✓</span><span>Employee Tasks<span class="brand-caption">OFFICE MANAGER</span></span></a>
+    <button id="theme" class="button" type="button" aria-label="Switch color theme">Dark mode</button>
+  </header>
+  <main class="layout">
+    <aside>
+      <div class="section-label">WORKSPACE</div>
+      <button id="today" class="today-button" type="button"><span aria-hidden="true">▦</span> Today’s log</button>
+      <section class="calendar" aria-label="Choose a log date">
+        <div class="calendar-heading"><h2 id="month-label"></h2><div><button id="prev-month" class="icon-button" aria-label="Previous month">‹</button><button id="next-month" class="icon-button" aria-label="Next month">›</button></div></div>
+        <div class="weekdays" aria-hidden="true"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
+        <div id="calendar-days" class="calendar-days"></div>
+        <label class="date-label" for="date-picker">Jump to date</label>
+        <input id="date-picker" type="date" min="2000-01-01" max="2100-12-31">
+      </section>
+      <p class="sidebar-note">Daily updates, in one place.<br>All dates use Myanmar time.</p>
+    </aside>
+    <section class="log-section" aria-labelledby="page-title">
+      <div class="page-heading"><div><div class="section-label">DAILY ACTIVITY</div><h1 id="page-title">Today’s log</h1><p id="date-label"></p></div><span class="read-only">Read only</span></div>
+      <div class="log-toolbar"><span id="task-count">Loading logs…</span><span id="updated-at"></span></div>
+      <p id="demo-notice" class="demo-notice" hidden>Sample preview data · These are illustrative assignments, not live employee records.</p>
+      <div id="logs" class="logs" aria-live="polite" aria-busy="true"></div>
+      <footer>Coordinated by <strong>Office Manager Agent</strong></footer>
+    </section>
+  </main>
+</body>
+</html>
