@@ -4,17 +4,11 @@
 getent ahosts todo.bynrobotics.com
 
 
-mkdir -p "$HOME/apps"
-cd "$HOME/apps"
-git clone https://github.com/Open-Source-Robotics-For-Myanmar/employee_tasks_dashboard.git
-cd employee_tasks_dashboard
-
-
-cd "$HOME/apps/employee_tasks_dashboard"
+git clone https://github.com/Open-Source-Robotics-For-Myanmar/employee_tasks_dashboard.git "$HOME/employee_tasks_dashboard"
+cd "$HOME/employee_tasks_dashboard"
 
 
 sudo ss -ltnp | grep -E ':(80|443)[[:space:]]' || true
 sudo certbot certonly --standalone --cert-name todo.com -d todo.bynrobotics.com
 sudo certbot certificates
-
 

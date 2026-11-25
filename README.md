@@ -77,10 +77,8 @@ sudo docker compose version
 ### ၃။ Project ကို clone လုပ်ပါ
 
 ```bash
-mkdir -p "$HOME/apps"
-cd "$HOME/apps"
-git clone https://github.com/Open-Source-Robotics-For-Myanmar/employee_tasks_dashboard.git
-cd employee_tasks_dashboard
+git clone https://github.com/Open-Source-Robotics-For-Myanmar/employee_tasks_dashboard.git "$HOME/employee_tasks_dashboard"
+cd "$HOME/employee_tasks_dashboard"
 ```
 
 Private repository ဖြစ်ရင် သင့် GitHub access ကို အရင်ပြင်ဆင်ပါ။ နောက်ပိုင်း Git push backup သုံးမယ်ဆို VPS user ရဲ့ SSH key နဲ့ repository write access လည်း လိုပါတယ်။
@@ -88,7 +86,7 @@ Private repository ဖြစ်ရင် သင့် GitHub access ကို �
 နောက် commands တွေကို ဒီ repository root ကနေ run ပါ။ Terminal အသစ်ဖွင့်တိုင်း:
 
 ```bash
-cd "$HOME/apps/employee_tasks_dashboard"
+cd "$HOME/employee_tasks_dashboard"
 ```
 
 ### ၄။ Data folder ကို bot ရေးလို့ရအောင် ပြင်ပါ
@@ -289,12 +287,12 @@ crontab -e
 
 ```cron
 # VPS timezone UTC ဖြစ်လျှင် 12:30 UTC = 19:00 Myanmar
-30 12 * * * /bin/sh /home/YOUR_USER/apps/employee_tasks_dashboard/cronjob >> /home/YOUR_USER/.local/state/employee_tasks_dashboard/backup.log 2>&1
+30 12 * * * /bin/sh /home/YOUR_USER/employee_tasks_dashboard/cronjob >> /home/YOUR_USER/.local/state/employee_tasks_dashboard/backup.log 2>&1
 ```
 
 ```cron
 # VPS timezone Asia/Yangon ဖြစ်လျှင်
-0 19 * * * /bin/sh /home/YOUR_USER/apps/employee_tasks_dashboard/cronjob >> /home/YOUR_USER/.local/state/employee_tasks_dashboard/backup.log 2>&1
+0 19 * * * /bin/sh /home/YOUR_USER/employee_tasks_dashboard/cronjob >> /home/YOUR_USER/.local/state/employee_tasks_dashboard/backup.log 2>&1
 ```
 
 ## HTTPS certificate သက်တမ်းတိုးခြင်း
@@ -302,7 +300,7 @@ crontab -e
 Standalone renewal အတွက် port 80 လွတ်ရပါမယ်။ ကိုယ့် deployment ရဲ့ certificate ကိုပဲ ရွေးပြီး pre/post hooks နဲ့ proxy ရပ်/ပြန်စပါ။ Certbot renewal timer ကလည်း hooks ကိုသုံးနိုင်အောင် တပ်ဆင်ထားရပါမယ်။ [Certbot renewal documentation](https://eff-certbot.readthedocs.io/en/stable/using.html#renewing-certificates)
 
 ```bash
-cd "$HOME/apps/employee_tasks_dashboard"
+cd "$HOME/employee_tasks_dashboard"
 PROJECT_DIR="$PWD"
 sudo certbot renew --cert-name dashboard.your-domain.com --dry-run \
   --pre-hook "docker compose --project-directory '$PROJECT_DIR' stop nginx_proxy" \
