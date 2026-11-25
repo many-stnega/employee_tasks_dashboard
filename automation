@@ -3,13 +3,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-docker stop employee-tasks-dashboard ; docker rm employee-tasks-dashboard
+docker compose down
 
-docker build -t employee-tasks-dashboard .
-docker run --detach \
-  --name employee-tasks-dashboard \
-  --publish 8080:80 \
-  --env TZ=Asia/Yangon \
-  --env-file "$PWD/.env" \
-  --volume "$PWD/json_data_records:/usr/share/nginx/html/data" \
-  employee-tasks-dashboard
+docker compose up --detach --build

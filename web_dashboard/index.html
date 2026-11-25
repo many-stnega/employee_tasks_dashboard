@@ -11,7 +11,10 @@
 <body>
   <header class="topbar">
     <a class="brand" href="./"><span class="brand-icon" aria-hidden="true">✓</span><span>Employee Tasks<span class="brand-caption">OFFICE MANAGER</span></span></a>
-    <button id="theme" class="button" type="button" aria-label="Switch color theme">Dark mode</button>
+    <div class="topbar-actions">
+      <button id="theme" class="button" type="button" aria-label="Switch color theme">Dark mode</button>
+      <form action="/logout" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button" type="submit">Sign out</button></form>
+    </div>
   </header>
   <main class="layout">
     <aside>

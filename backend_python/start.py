@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run Nginx and the Telegram bot together in one container."""
+"""Run the dashboard application and Telegram bot together in one container."""
 import signal
 import subprocess
 import sys
@@ -18,8 +18,15 @@ def main() -> int:
     signal.signal(signal.SIGINT, stop)
 
     try:
-        processes.append(subprocess.Popen(["nginx", "-g", "daemon off;"]))
-        processes.append(subprocess.Popen([sys.executable, "/app/bot.py"]))
+        processes.append(subprocess.Popen([
+            sys.executable, "-m", "gunicorn",
+            "--bind", "0.0.0.0:8000",
+            "--workers", "2",
+            "--access-logfile", "-",
+            "--error-logfile", "-",
+            "backend_python.web_app:app",
+        ]))
+        processes.append(subprocess.Popen([sys.executable, "/app/backend_python/bot.py"]))
         while not stopping:
             exited = [(process, process.poll()) for process in processes]
             exited = [(process, status) for process, status in exited if status is not None]

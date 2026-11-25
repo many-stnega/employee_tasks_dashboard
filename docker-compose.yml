@@ -1,0 +1,34 @@
+services:
+  web-dashboard:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      TASKS_DATA_DIR: /data
+    volumes:
+      - ./json_data_records:/data:ro
+    expose:
+      - "8000"
+    networks:
+      - dashboard_internal
+
+  nginx_proxy:
+    image: nginx:stable-alpine
+    restart: unless-stopped
+    depends_on:
+      web-dashboard:
+        condition: service_healthy
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx_proxy/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${LETSENCRYPT_DIR:-/etc/letsencrypt}:/etc/letsencrypt:ro
+    networks:
+      - dashboard_internal
+
+networks:
+  dashboard_internal:

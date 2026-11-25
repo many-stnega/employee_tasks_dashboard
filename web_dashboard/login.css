@@ -1,0 +1,16 @@
+:root{color-scheme:light;--text:#0f172a;--muted:#64748b;--border:#dbe3ee;--blue:#2563eb;--bg:#f4f7fb}
+*{box-sizing:border-box}
+body{min-height:100vh;margin:0;padding:24px;display:grid;place-items:center;background:var(--bg);color:var(--text);font:16px/1.5 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.login-card{width:min(100%,420px);padding:38px;background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 35px rgb(15 23 42 / .08)}
+.brand-icon{width:46px;height:46px;display:grid;place-items:center;border-radius:12px;background:var(--blue);color:#fff;font-size:27px}
+.eyebrow{margin:22px 0 4px;color:var(--muted);font-size:11px;letter-spacing:2px;font-weight:650}
+h1{margin:0;font-size:26px;letter-spacing:-.5px}
+.intro{margin:8px 0 24px;color:var(--muted)}
+form{display:grid;gap:9px}
+label{margin-top:7px;font-size:14px;font-weight:600}
+input{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:8px;font:inherit}
+input:focus-visible,button:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+button{margin-top:14px;padding:11px 14px;border:0;border-radius:8px;background:var(--blue);color:#fff;font:inherit;font-weight:650;cursor:pointer}
+button:hover{background:#1d4ed8}
+.error{padding:10px 12px;border-radius:8px;background:#fef2f2;color:#b91c1c;font-size:14px}
+@media(max-width:480px){.login-card{padding:28px 22px}}

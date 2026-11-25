@@ -4,30 +4,60 @@ The dashboard serves daily task logs from `json_data_records/YYYY-MM-DD.json`.
 
 ## Run with Docker
 
-Run these commands from the repository root:
+The VPS deployment runs the dashboard application and Nginx reverse proxy in
+separate containers. Only Nginx publishes ports; the dashboard, including its
+daily JSON files, is not directly reachable from outside the Docker network.
+The dashboard login uses a signed session cookie and protects both pages and
+data.
+
+On the VPS, point a DNS name to the server and allow inbound TCP ports 80 and
+443. Install Docker Compose and Certbot, then obtain a certificate for that
+name while port 80 is not occupied:
 
 ```sh
 cp .env.example .env
-# Add your Telegram bot token to .env before starting the container.
-docker build -t employee-tasks-dashboard .
-docker run --detach \
-  --name employee-tasks-dashboard \
-  --publish 8080:80 \
-  --env TZ=Asia/Yangon \
-  --env-file "$PWD/.env" \
-  --volume "$PWD/json_data_records:/usr/share/nginx/html/data" \
-  employee-tasks-dashboard
+sudo certbot certonly --standalone -d dashboard.example.com
 ```
 
-The container uses Myanmar Time (`Asia/Yangon`), and the host
-`json_data_records/` directory is mounted into the website. Nginx and the
-Python Telegram bot run together in this same container. Open
-<http://localhost:8080>. The `automation` script builds and starts it from the
-repository root:
+Set `DOMAIN` in `.env` to the DNS name used for the certificate. Add the
+Telegram bot token and access-control IDs as described below. Generate a
+dashboard username, password hash, and independent session secret; the raw
+password is not stored in `.env`:
 
 ```sh
-bash ./automation
+docker run --rm -it python:3.12-slim sh -c 'pip install --quiet werkzeug && python -c "from werkzeug.security import generate_password_hash; import getpass; print(generate_password_hash(getpass.getpass()))"'
+python3 -c 'import secrets; print(secrets.token_hex(32))'
 ```
+
+The hash command prompts for the password without echoing it. Put the generated
+hash and secret into `.env` as single-quoted values (Werkzeug hashes contain
+`$` characters), choose a unique username and a strong password (at least 12
+characters), and keep `.env` private and never commit it. Then start the stack:
+
+```sh
+docker compose up -d --build
+```
+
+Open `https://your-domain/`. `nginx_proxy` redirects HTTP to HTTPS, limits
+repeated login attempts, and forwards requests only to the internal dashboard
+container. The dashboard session cookie is Secure, HttpOnly, SameSite=Strict,
+and expires after eight hours. All dashboard files and JSON data require a
+valid login. For certificate renewal, stop the proxy before running
+`sudo certbot renew`, then start it again; reload the proxy after a renewed
+certificate is installed:
+
+```sh
+docker compose stop nginx_proxy
+sudo certbot renew
+docker compose start nginx_proxy
+docker compose exec nginx_proxy nginx -s reload
+```
+
+The `automation` script builds and starts the full Compose stack from the
+repository root. The host `json_data_records/` directory is mounted read-only
+inside the dashboard container. Do not publish port 8000 or run the dashboard
+container with a separate `docker run` command, as that would bypass the
+reverse proxy.
 
 ## Commit and push data daily
 
