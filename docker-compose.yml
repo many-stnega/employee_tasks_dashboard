@@ -7,7 +7,7 @@ services:
     environment:
       TASKS_DATA_DIR: /data
     volumes:
-      - ./json_data_records:/data:ro
+      - ./json_data_records:/data
     expose:
       - "8000"
     networks:
