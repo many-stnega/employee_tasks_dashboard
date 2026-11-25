@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Telegram bot entry point for the employee tasks dashboard."""
+import asyncio
 import logging
 import json
 import os
@@ -7,7 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.error import TelegramError
@@ -23,6 +24,8 @@ from telegram.ext import (
 
 TASK_NAME, TASK_EMPLOYEE, TASK_DESCRIPTION = range(3)
 REPORT_TASK, REPORT_DESCRIPTION = range(7, 9)
+TASK_LIST_SELECT, TASK_LIST_REPORT_DESCRIPTION = range(9, 11)
+END_TASK_SELECT = 11
 TASK_ASSIGNMENT_STEPS = (
     TASK_NAME,
     TASK_EMPLOYEE,
@@ -45,12 +48,37 @@ def task_username(task: dict) -> str:
     return str(assigned_to)
 
 
+def task_reports(task: dict) -> list[dict]:
+    reports = task.get("employee_reports")
+    if isinstance(reports, list):
+        return reports
+    legacy_report = task.get("employee_report")
+    return [legacy_report] if isinstance(legacy_report, dict) else []
+
+
 def task_assignment_key(update: Update) -> str:
     return f"task_assignment:{update.effective_chat.id}"
 
 
 def report_key(update: Update) -> str:
     return f"task_report:{update.effective_chat.id}"
+
+
+def task_list_key(update: Update) -> str:
+    return f"task_list:{update.effective_chat.id}"
+
+
+def end_task_key(update: Update) -> str:
+    return f"end_task:{update.effective_chat.id}"
+
+
+def data_directory() -> Path:
+    return Path(
+        os.environ.get(
+            "TASKS_DATA_DIR",
+            Path(__file__).resolve().parents[1] / "json_data_records",
+        )
+    )
 
 
 def today_key() -> str:
@@ -121,7 +149,12 @@ async def run_task_update(
     if action == "carry" and "already exists" in result.stdout.lower():
         await update.effective_message.reply_text(result.stdout.strip())
         return False
-    past_tense = {"assign": "assigned", "report": "reported", "carry": "carried"}
+    past_tense = {
+        "assign": "assigned",
+        "report": "reported",
+        "carry": "carried",
+        "end": "completed",
+    }
     await update.effective_message.reply_text(f"Task {past_tense[action]}: {task_id}.")
     return True
 
@@ -493,48 +526,69 @@ async def carry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await run_task_update(update, command, fields["id"], "carry")
 
 
-def format_task_list(data: dict) -> str:
-    tasks = data["tasks"]
-    header = f"Task list for {data['date']} ({len(tasks)} task(s))"
-    if not tasks:
-        return f"{header}\nNo tasks assigned."
+def task_list_selection_keyboard(tasks: list[dict]) -> InlineKeyboardMarkup:
+    buttons = [
+        [InlineKeyboardButton(task_name(task)[:64], callback_data=f"task_list:{index}")]
+        for index, task in enumerate(tasks)
+    ]
+    return InlineKeyboardMarkup(buttons)
 
-    entries = []
-    for task in tasks:
-        report_data = task.get("employee_report")
-        report_text = (
-            report_data.get("description", "").strip()
-            if isinstance(report_data, dict)
-            else ""
+
+def task_detail_text(task: dict, date: str) -> str:
+    reports = task_reports(task)
+    report_lines = []
+    for report in reports:
+        reported_at = datetime.fromisoformat(
+            report["reported_at"].replace("Z", "+00:00")
+        ).astimezone(timezone(timedelta(hours=6, minutes=30)))
+        report_lines.append(
+            f"🕒 {reported_at.strftime('%Y-%m-%d %I:%M %p')} MMT\n"
+            f"{report['description']}"
         )
-        entries.append(
-            "\n".join(
-                [
-                    f"ID: {task['id']}",
-                    f"Task: {task_name(task)}",
-                    f"Engineer: @{task_username(task)}",
-                    f"Description: {task['description']}",
-                    f"Report: {report_text or 'Awaiting employee report.'}",
-                ]
-            )
-        )
-    return f"{header}\n\n" + "\n\n".join(entries)
+    report_text = "\n\n".join(report_lines) if report_lines else "No reports yet."
+    return "\n".join(
+        [
+            f"📋 {task_name(task)}",
+            f"Task ID: {task['id']}",
+            f"📅 {date}",
+            f"👷 Engineer: @{task_username(task)}",
+            f"Status: {'✅ Completed' if task.get('status') == 'completed' else '🟡 In progress'}",
+            "",
+            "Description",
+            task["description"],
+            "",
+            f"Reports ({len(reports)})",
+            report_text,
+        ]
+    )
 
 
-def split_message(text: str, limit: int = 3500) -> list[str]:
-    chunks = []
-    while len(text) > limit:
-        split_at = text.rfind("\n", 0, limit + 1)
-        if split_at <= 0:
-            split_at = limit
-        chunks.append(text[:split_at])
-        text = text[split_at:].lstrip("\n")
-    if text:
-        chunks.append(text)
-    return chunks
+def task_detail_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("📝 Add report", callback_data="task_list_report")],
+            [InlineKeyboardButton("← Back to tasks", callback_data="task_list_back")],
+        ]
+    )
 
 
-async def task_lists(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def load_today_task_data() -> dict:
+    command = [
+        sys.executable,
+        str(Path(__file__).with_name("update_tasks.py")),
+        "list",
+    ]
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    if result.returncode:
+        detail = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(f"Could not load task list: {detail}")
+    data = json.loads(result.stdout)
+    if not isinstance(data, dict) or not isinstance(data.get("tasks"), list):
+        raise ValueError("Invalid daily task list format.")
+    return data
+
+
+async def task_lists(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     allowed_user_ids = (
         context.bot_data["task_assign_user_ids"]
         | context.bot_data["standard_user_ids"]
@@ -543,31 +597,324 @@ async def task_lists(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.effective_message.reply_text(
             "You are not authorized to view task lists in this chat."
         )
+        return ConversationHandler.END
+    try:
+        data = await load_today_task_data()
+        tasks = data["tasks"]
+        if not tasks:
+            await update.effective_message.reply_text("There are no tasks for today.")
+            return ConversationHandler.END
+        context.user_data[task_list_key(update)] = data
+    except (OSError, RuntimeError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
+        logging.exception("Could not load today's task list.")
+        await update.effective_message.reply_text(f"Could not load task list: {error}")
+        return ConversationHandler.END
+    await update.effective_message.reply_text(
+        f"📋 Today's tasks · {data['date']}\nChoose a task:",
+        reply_markup=task_list_selection_keyboard(tasks),
+    )
+    return TASK_LIST_SELECT
+
+
+async def task_list_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    allowed_user_ids = (
+        context.bot_data["task_assign_user_ids"]
+        | context.bot_data["standard_user_ids"]
+    )
+    if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
+        context.user_data.pop(task_list_key(update), None)
+        await query.edit_message_text("You are not authorized to view task lists in this chat.")
+        return ConversationHandler.END
+    data = context.user_data.get(task_list_key(update))
+    if not isinstance(data, dict):
+        await query.edit_message_text("Task list expired. Send /task_lists to try again.")
+        return ConversationHandler.END
+    try:
+        index = int(query.data.partition(":")[2])
+        task = data["tasks"][index]
+    except (IndexError, TypeError, ValueError):
+        await query.edit_message_text("That task selection is invalid. Send /task_lists to try again.")
+        return ConversationHandler.END
+    context.user_data[f"{task_list_key(update)}:selected"] = index
+    await query.edit_message_text(
+        task_detail_text(task, data["date"]),
+        reply_markup=task_detail_keyboard(),
+    )
+    return TASK_LIST_SELECT
+
+
+async def task_list_back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    allowed_user_ids = (
+        context.bot_data["task_assign_user_ids"]
+        | context.bot_data["standard_user_ids"]
+    )
+    if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
+        context.user_data.pop(task_list_key(update), None)
+        await query.edit_message_text("You are not authorized to view task lists in this chat.")
+        return ConversationHandler.END
+    data = context.user_data.get(task_list_key(update))
+    if not isinstance(data, dict):
+        await query.edit_message_text("Task list expired. Send /task_lists to try again.")
+        return ConversationHandler.END
+    await query.edit_message_text(
+        f"📋 Today's tasks · {data['date']}\nChoose a task:",
+        reply_markup=task_list_selection_keyboard(data["tasks"]),
+    )
+    return TASK_LIST_SELECT
+
+
+async def task_list_report_start(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    query = update.callback_query
+    await query.answer()
+    allowed_user_ids = (
+        context.bot_data["task_assign_user_ids"]
+        | context.bot_data["standard_user_ids"]
+    )
+    if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
+        await query.edit_message_text("You are not authorized to report tasks in this chat.")
+        return ConversationHandler.END
+    data = context.user_data.get(task_list_key(update))
+    index = context.user_data.get(f"{task_list_key(update)}:selected")
+    if not isinstance(data, dict) or not isinstance(index, int):
+        await query.edit_message_text("Task selection expired. Send /task_lists to try again.")
+        return ConversationHandler.END
+    try:
+        task = data["tasks"][index]
+    except IndexError:
+        await query.edit_message_text("Task selection expired. Send /task_lists to try again.")
+        return ConversationHandler.END
+    context.user_data[f"{task_list_key(update)}:report_task"] = task
+    await query.edit_message_text(
+        f"📝 Report for {task_name(task)}\n\n"
+        "Send your report as a message. It will be added to the report history."
+    )
+    return TASK_LIST_REPORT_DESCRIPTION
+
+
+async def task_list_report_save(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    allowed_user_ids = (
+        context.bot_data["task_assign_user_ids"]
+        | context.bot_data["standard_user_ids"]
+    )
+    if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
+        context.user_data.pop(task_list_key(update), None)
+        await update.effective_message.reply_text("You are not authorized to report tasks in this chat.")
+        return ConversationHandler.END
+    task = context.user_data.get(f"{task_list_key(update)}:report_task")
+    if not isinstance(task, dict):
+        await update.effective_message.reply_text("Task selection expired. Send /task_lists to try again.")
+        return ConversationHandler.END
+    description = update.effective_message.text.strip()
+    if not description:
+        await update.effective_message.reply_text("Report cannot be empty. Please enter the report.")
+        return TASK_LIST_REPORT_DESCRIPTION
+    command = [
+        sys.executable,
+        str(Path(__file__).with_name("update_tasks.py")),
+        "report",
+        "--id",
+        task["id"],
+        "--description",
+        description,
+    ]
+    saved = await run_task_update(update, command, task["id"], "report")
+    if saved:
+        try:
+            data = await load_today_task_data()
+            task_list = context.user_data.get(task_list_key(update))
+            if isinstance(task_list, dict):
+                task_list["tasks"] = data["tasks"]
+                selected_index = context.user_data.get(f"{task_list_key(update)}:selected")
+                if isinstance(selected_index, int) and selected_index < len(data["tasks"]):
+                    await update.effective_message.reply_text(
+                        task_detail_text(data["tasks"][selected_index], data["date"]),
+                        reply_markup=task_detail_keyboard(),
+                    )
+        except (OSError, RuntimeError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
+            logging.exception("Could not reload task details after report.")
+            await update.effective_message.reply_text(f"Report saved, but could not reload task details: {error}")
+    context.user_data.pop(f"{task_list_key(update)}:report_task", None)
+    return ConversationHandler.END
+
+
+async def cancel_task_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data.pop(task_list_key(update), None)
+    context.user_data.pop(f"{task_list_key(update)}:selected", None)
+    context.user_data.pop(f"{task_list_key(update)}:report_task", None)
+    await update.effective_message.reply_text("Task list closed.")
+    return ConversationHandler.END
+
+
+async def cancel_end_task(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data.pop(end_task_key(update), None)
+    await update.effective_message.reply_text("Task completion cancelled.")
+    return ConversationHandler.END
+
+
+async def end_task_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    allowed_user_ids = (
+        context.bot_data["task_assign_user_ids"]
+        | context.bot_data["standard_user_ids"]
+    )
+    if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
+        await update.effective_message.reply_text(
+            "You are not authorized to end tasks in this chat."
+        )
+        return ConversationHandler.END
+    try:
+        data = await load_today_task_data()
+    except (OSError, RuntimeError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
+        logging.exception("Could not load tasks to end.")
+        await update.effective_message.reply_text(f"Could not load tasks: {error}")
+        return ConversationHandler.END
+
+    user = update.effective_user
+    is_manager = user.id in context.bot_data["task_assign_user_ids"]
+    username = (user.username or "").casefold()
+    tasks = [
+        task for task in data["tasks"]
+        if task.get("status") != "completed"
+        and (
+            is_manager
+            or username and task_username(task).lstrip("@").casefold() == username
+        )
+    ]
+    if not tasks:
+        await update.effective_message.reply_text(
+            "There are no unfinished tasks available for you to end."
+        )
+        return ConversationHandler.END
+    context.user_data[end_task_key(update)] = {
+        "date": data["date"],
+        "tasks": tasks,
+    }
+    keyboard = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(task_name(task)[:64], callback_data=f"end_task:{index}")]
+            for index, task in enumerate(tasks)
+        ]
+    )
+    await update.effective_message.reply_text(
+        "✅ Choose the task you have finished:",
+        reply_markup=keyboard,
+    )
+    return END_TASK_SELECT
+
+
+async def end_task_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    allowed_user_ids = (
+        context.bot_data["task_assign_user_ids"]
+        | context.bot_data["standard_user_ids"]
+    )
+    if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
+        context.user_data.pop(end_task_key(update), None)
+        await query.edit_message_text("You are not authorized to end tasks in this chat.")
+        return ConversationHandler.END
+    selection = context.user_data.get(end_task_key(update))
+    if not isinstance(selection, dict):
+        await query.edit_message_text("Task selection expired. Send /end_task to try again.")
+        return ConversationHandler.END
+    try:
+        index = int(query.data.partition(":")[2])
+        task = selection["tasks"][index]
+    except (IndexError, TypeError, ValueError):
+        await query.edit_message_text("Invalid task selection. Send /end_task to try again.")
+        return ConversationHandler.END
+    command = [
+        sys.executable,
+        str(Path(__file__).with_name("update_tasks.py")),
+        "end_task",
+        "--id",
+        task["id"],
+    ]
+    context.user_data.pop(end_task_key(update), None)
+    if await run_task_update(update, command, task["id"], "end"):
+        await update.effective_message.reply_text(
+            "✅ Task completed. It will no longer be carried forward."
+        )
+    return ConversationHandler.END
+
+
+async def auto_carry_forward(target_date: str) -> None:
+    folder = data_directory()
+    source_dates = []
+    for path in folder.glob("*.json"):
+        try:
+            source_date = date.fromisoformat(path.stem)
+        except ValueError:
+            continue
+        if source_date.isoformat() >= target_date:
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise RuntimeError(f"Could not inspect task file {path}: {error}") from error
+        if (
+            not isinstance(data, dict)
+            or data.get("date") != source_date.isoformat()
+            or not isinstance(data.get("tasks"), list)
+        ):
+            raise RuntimeError(f"Invalid daily task file for rollover: {path}")
+        if data.get("demo") is not True:
+            source_dates.append(source_date.isoformat())
+    if not source_dates:
+        logging.info("No earlier task records found to carry into %s.", target_date)
         return
 
     command = [
         sys.executable,
         str(Path(__file__).with_name("update_tasks.py")),
-        "list",
+        "--date",
+        target_date,
+        "carry_forward",
+        "--from-date",
+        max(source_dates),
     ]
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, check=False)
-        if result.returncode:
-            detail = result.stderr.strip() or result.stdout.strip()
-            logging.error("Could not load task list: %s", detail)
-            await update.effective_message.reply_text(f"Could not load task list: {detail}")
-            return
-        data = json.loads(result.stdout)
-        if not isinstance(data, dict) or not isinstance(data.get("tasks"), list):
-            raise ValueError("Invalid daily task list format.")
-        messages = split_message(format_task_list(data))
-    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
-        logging.exception("Could not format today's task list.")
-        await update.effective_message.reply_text(f"Could not load task list: {error}")
-        return
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    if result.returncode:
+        detail = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(f"Automatic carry-forward failed: {detail}")
+    logging.info(result.stdout.strip())
 
-    for message in messages:
-        await update.effective_message.reply_text(message)
+
+async def task_rollover_loop() -> None:
+    mmt = timezone(timedelta(hours=6, minutes=30))
+    while True:
+        now = datetime.now(mmt)
+        try:
+            await auto_carry_forward(now.date().isoformat())
+        except (OSError, RuntimeError) as error:
+            logging.exception("Could not carry unfinished tasks forward.")
+            wait_seconds = 60
+        else:
+            tomorrow = now.date() + timedelta(days=1)
+            next_midnight = datetime.combine(tomorrow, datetime.min.time(), tzinfo=mmt)
+            wait_seconds = max(1, (next_midnight - datetime.now(mmt)).total_seconds())
+        await asyncio.sleep(wait_seconds)
+
+
+async def application_post_init(application: Application) -> None:
+    application.bot_data["task_rollover_job"] = asyncio.create_task(task_rollover_loop())
+
+
+async def application_post_shutdown(application: Application) -> None:
+    job = application.bot_data.get("task_rollover_job")
+    if job is not None:
+        job.cancel()
+        try:
+            await job
+        except asyncio.CancelledError:
+            pass
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -620,7 +967,13 @@ def main() -> None:
             "User or chat allowlist is empty; authorized bot commands will be denied."
         )
 
-    application = Application.builder().token(token).build()
+    application = (
+        Application.builder()
+        .token(token)
+        .post_init(application_post_init)
+        .post_shutdown(application_post_shutdown)
+        .build()
+    )
     application.bot_data["task_assign_user_ids"] = task_assign_user_ids
     application.bot_data["standard_user_ids"] = standard_user_ids
     application.bot_data["allowed_chat_ids"] = chat_ids
@@ -638,6 +991,33 @@ def main() -> None:
         per_chat=True,
         per_user=True,
     )
+    task_list_conversation = ConversationHandler(
+        entry_points=[CommandHandler("task_lists", task_lists)],
+        states={
+            TASK_LIST_SELECT: [
+                CallbackQueryHandler(task_list_select, pattern=r"^task_list:\d+$"),
+                CallbackQueryHandler(task_list_report_start, pattern=r"^task_list_report$"),
+                CallbackQueryHandler(task_list_back, pattern=r"^task_list_back$"),
+            ],
+            TASK_LIST_REPORT_DESCRIPTION: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, task_list_report_save)
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel_end_task)],
+        per_chat=True,
+        per_user=True,
+    )
+    end_task_conversation = ConversationHandler(
+        entry_points=[CommandHandler("end_task", end_task_start)],
+        states={
+            END_TASK_SELECT: [
+                CallbackQueryHandler(end_task_select, pattern=r"^end_task:\d+$")
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel_task_list)],
+        per_chat=True,
+        per_user=True,
+    )
     report_conversation = ConversationHandler(
         entry_points=[CommandHandler("report", report_start)],
         states={
@@ -651,9 +1031,10 @@ def main() -> None:
         per_user=True,
     )
     application.add_handler(task_assign_conversation)
+    application.add_handler(task_list_conversation)
+    application.add_handler(end_task_conversation)
     application.add_handler(report_conversation)
     application.add_handler(CommandHandler("cancel", cancel_task_assign))
-    application.add_handler(CommandHandler("task_lists", task_lists))
     application.add_handler(CommandHandler("carry", carry))
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("whoami", whoami))

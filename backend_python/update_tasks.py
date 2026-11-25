@@ -61,6 +61,10 @@ def load(folder, key):
         if not isinstance(task, dict) or not isinstance(task.get('id'), str) or not task['id'] or task['id'] in ids:
             raise ValueError(f'Invalid or duplicate task ID in {path}')
         ids.add(task['id'])
+        if task.get('status') not in (None, 'active', 'completed'):
+            raise ValueError(f'Invalid task status for {task["id"]}')
+        if task.get('status') == 'completed':
+            timestamp(task.get('completed_at', ''))
         if not isinstance(task.get('description'), str):
             raise ValueError(f'Missing description for {task["id"]}')
         if not (
@@ -83,6 +87,14 @@ def load(folder, key):
             if not isinstance(report, dict) or not isinstance(report.get('description'), str):
                 raise ValueError(f'Invalid employee report for {task["id"]}')
             timestamp(report.get('reported_at', ''))
+        reports = task.get('employee_reports')
+        if reports is not None:
+            if not isinstance(reports, list):
+                raise ValueError(f'Invalid employee reports for {task["id"]}')
+            for entry in reports:
+                if not isinstance(entry, dict) or not isinstance(entry.get('description'), str):
+                    raise ValueError(f'Invalid employee report entry for {task["id"]}')
+                timestamp(entry.get('reported_at', ''))
     return data
 
 
@@ -133,6 +145,12 @@ def main():
     carry = commands.add_parser('carry', help='Copy one assignment from an earlier day, without its old report.')
     carry.add_argument('--id', required=True, type=nonempty)
     carry.add_argument('--from-date', required=True, type=day)
+    carry_forward = commands.add_parser(
+        'carry_forward', help='Copy all unfinished tasks from an earlier date.'
+    )
+    carry_forward.add_argument('--from-date', required=True, type=day)
+    end_task = commands.add_parser('end_task', help='Mark a task completed for this date.')
+    end_task.add_argument('--id', required=True, type=nonempty)
     commands.add_parser('list', help='Print this day’s JSON without changing it.')
     args = parser.parse_args()
     try:
@@ -141,10 +159,14 @@ def main():
             if args.command == 'list':
                 print(json.dumps(data, ensure_ascii=False, indent=2))
                 return
-            if data.get('demo'):
+            if data.get('demo') and args.command != 'carry_forward':
                 raise ValueError('Sample file: choose a date without sample data before updating it.')
             now = datetime.now(MMT).isoformat(timespec='seconds')
-            task = next((item for item in data['tasks'] if item['id'] == args.id), None)
+            task = (
+                next((item for item in data['tasks'] if item['id'] == args.id), None)
+                if hasattr(args, 'id')
+                else None
+            )
             if args.command == 'assign_task':
                 if task is None:
                     task = {'id': args.id}
@@ -153,27 +175,35 @@ def main():
                 task['task'] = args.task
                 task['assigned_to'] = {'username': args.username}
                 task['description'] = args.description
+                task['status'] = 'active'
+                task.pop('completed_at', None)
+            elif args.command == 'end_task':
+                if task is None:
+                    raise ValueError('Task not found for this date.')
+                if task.get('status') == 'completed':
+                    raise ValueError(f'Task {args.id} is already completed.')
+                task['status'] = 'completed'
+                task['completed_at'] = now
             elif args.command == 'report':
                 if task is None:
                     raise ValueError('Task not found for this date. Create or carry the assignment first.')
                 reported = timestamp(args.reported_at or now).astimezone(MMT)
                 if reported.date().isoformat() != args.date:
                     raise ValueError('Report timestamp must fall on --date in Myanmar time.')
-                previous_report = task.get('employee_report')
-                previous_description = (
-                    previous_report.get('description', '').strip()
-                    if isinstance(previous_report, dict)
-                    else ''
-                )
-                combined_description = (
-                    f'{previous_description}\n\n{args.description}'
-                    if previous_description
-                    else args.description
-                )
-                task['employee_report'] = {
-                    'description': combined_description,
+                reports = task.get('employee_reports')
+                if reports is None:
+                    reports = []
+                    previous_report = task.get('employee_report')
+                    if isinstance(previous_report, dict):
+                        reports.append(previous_report)
+                elif not isinstance(reports, list):
+                    raise ValueError(f'Invalid employee reports for {args.id}')
+                reports.append({
+                    'description': args.description,
                     'reported_at': reported.isoformat(timespec='seconds'),
-                }
+                })
+                task['employee_reports'] = reports
+                task.pop('employee_report', None)
             elif args.command == 'carry':
                 if args.from_date >= args.date:
                     raise ValueError('--from-date must be earlier than --date.')
@@ -186,6 +216,8 @@ def main():
                 original = next((item for item in source['tasks'] if item['id'] == args.id), None)
                 if original is None:
                     raise ValueError('Source task not found.')
+                if original.get('status') == 'completed':
+                    raise ValueError('Cannot carry a completed task.')
                 task_name = original.get('task')
                 if task_name is None:
                     task_name = original['repo']['name']
@@ -204,8 +236,60 @@ def main():
                     'task': task_name,
                     'assigned_to': task_assignee,
                     'description': original['description'],
+                    'status': 'active',
                 }
                 data['tasks'].append(task)
+            elif args.command == 'carry_forward':
+                if args.from_date >= args.date:
+                    raise ValueError('--from-date must be earlier than --date.')
+                source = load(args.data_dir, args.from_date)
+                if source.get('demo'):
+                    raise ValueError('Cannot carry tasks from a sample file.')
+                unfinished = [
+                    item for item in source['tasks']
+                    if item.get('status') != 'completed'
+                ]
+                if not unfinished:
+                    print(f'No unfinished tasks to carry from {args.from_date}.')
+                    return
+                if data.get('demo'):
+                    data = {'date': args.date, 'tasks': []}
+                existing_ids = {item['id'] for item in data['tasks']}
+                carried = 0
+                for original in unfinished:
+                    if original['id'] in existing_ids:
+                        continue
+                    original_name = original.get('task')
+                    if original_name is None:
+                        original_name = original['repo']['name']
+                    assigned_to = original['assigned_to']
+                    if isinstance(assigned_to, dict):
+                        username_value = assigned_to.get('username')
+                        assignee = (
+                            {'username': username_value}
+                            if username_value
+                            else {'name': assigned_to.get('name', 'Unknown')}
+                        )
+                    else:
+                        assignee = {'username': assigned_to.lstrip('@')}
+                    data['tasks'].append({
+                        'id': original['id'],
+                        'task': original_name,
+                        'assigned_to': assignee,
+                        'description': original['description'],
+                        'status': 'active',
+                        'updated_at': now,
+                    })
+                    existing_ids.add(original['id'])
+                    carried += 1
+                if not carried:
+                    print(f'No new unfinished tasks to carry from {args.from_date}.')
+                    return
+                data['updated_at'] = now
+                data['demo'] = False
+                target = write(args.data_dir, data)
+                print(f'Carried {carried} unfinished task(s) to {target}.')
+                return
             task['updated_at'] = now
             data['updated_at'] = now
             data['demo'] = False

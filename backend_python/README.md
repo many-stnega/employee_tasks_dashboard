@@ -35,9 +35,10 @@ python3 backend_python/update_tasks.py --date 2026-11-25 report \
 ```
 
 The report appears in the right-hand Employee Report column. The assignment
-description stays intact, and each new report is appended after the previous
-report. Omit `--reported-at` for the current time. Historical reports must
-specify their actual timestamp, falling on the selected date in Myanmar time.
+description stays intact, and each new report is saved as a separate entry with
+its own date and time. Omit `--reported-at` for the current time. Historical
+reports must specify their actual timestamp, falling on the selected date in
+Myanmar time.
 
 ## Carry an unfinished task to another day
 
@@ -46,7 +47,12 @@ python3 backend_python/update_tasks.py --date 2026-11-26 carry \
   --id task-001 --from-date 2026-11-25
 ```
 
-Only carry tasks the agent has confirmed are unfinished. The previous daily file is preserved, and the new day's employee report starts empty. Repeating carry does not overwrite an existing task or report.
+The bot automatically carries unfinished tasks forward each day in Myanmar
+time. Use `/end_task` and select a finished task to mark it complete so it will
+not carry forward. Manual carry is still available; completed tasks cannot be
+carried. A carried task starts the new day's report history empty. When active
+tasks roll into a date containing sample data, the sample entries are replaced
+automatically.
 
 ## Read the result
 

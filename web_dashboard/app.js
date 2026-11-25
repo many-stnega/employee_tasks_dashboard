@@ -1,7 +1,7 @@
 'use strict';
 // Daily files: { date: 'YYYY-MM-DD', updated_at: ISO timestamp, demo: boolean,
 // tasks: [{ id, task, assigned_to: {username},
-// description, employee_report?: {description, reported_at: ISO timestamp},
+// description, employee_reports?: [{description, reported_at: ISO timestamp}],
 // updated_at: ISO timestamp }] }. Legacy repo/name fields remain readable.
 // Dates and timestamps are displayed in Asia/Yangon. No credentials or writes.
 const TIME_ZONE = 'Asia/Yangon';
@@ -14,6 +14,7 @@ function todayKey() {
 const dateObject = key => new Date(`${key}T12:00:00+06:30`);
 const prettyDate = key => new Intl.DateTimeFormat('en-US', { timeZone: TIME_ZONE, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(dateObject(key));
 const time = iso => iso && Number.isFinite(Date.parse(iso)) ? new Intl.DateTimeFormat('en-US', { timeZone: TIME_ZONE, hour: 'numeric', minute: '2-digit' }).format(new Date(iso)) : '';
+const reportDateTime = iso => iso && Number.isFinite(Date.parse(iso)) ? new Intl.DateTimeFormat('en-US', { timeZone: TIME_ZONE, year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(iso)) : '';
 let selected = todayKey();
 let month = selected.slice(0, 7);
 let pending;
@@ -56,6 +57,9 @@ function card(task) {
   const top = node('div', 'card-top');
   const taskTitle = node('div');
   taskTitle.append(node('span', 'field-label', 'Task'), node('span', 'repo', task.task || task.repo?.name || 'Untitled task'));
+  if (task.status === 'completed') {
+    taskTitle.append(node('span', 'task-status', '✅ Completed'));
+  }
   const employee = node('div', 'employee');
   const assignee = task.assigned_to;
   const username = (typeof assignee === 'string' ? assignee : assignee.username || assignee.name || '').replace(/^@/, '');
@@ -67,13 +71,15 @@ function card(task) {
   assignment.append(node('span', 'field-label', 'Description'), node('p', '', task.description));
   const report = node('section', 'description employee-report');
   report.append(node('span', 'field-label', 'Employee Report'));
-  if (task.employee_report?.description?.trim()) {
-    report.append(node('p', '', task.employee_report.description));
-    const reportedTime = time(task.employee_report.reported_at);
-    if (reportedTime) {
-      const reported = node('time', 'report-time', `Reported ${reportedTime} · MMT`);
-      reported.dateTime = task.employee_report.reported_at;
-      report.append(reported);
+  const reports = task.employee_reports || (task.employee_report ? [task.employee_report] : []);
+  if (reports.length) {
+    for (const entry of reports) {
+      const reportEntry = node('div', 'report-entry');
+      reportEntry.append(node('p', '', entry.description));
+      const reported = node('time', 'report-time', `Reported ${reportDateTime(entry.reported_at)} · MMT`);
+      reported.dateTime = entry.reported_at;
+      reportEntry.append(reported);
+      report.append(reportEntry);
     }
   } else {
     report.append(node('p', 'report-pending', 'Awaiting employee report.'));
@@ -110,8 +116,12 @@ function validData(data, key) {
       (task.assigned_to.name === undefined || typeof task.assigned_to.name === 'string') &&
       (typeof task.assigned_to.username === 'string' || typeof task.assigned_to.name === 'string')) &&
     typeof task.description === 'string' &&
+    (task.status === undefined || ['active', 'completed'].includes(task.status)) &&
     (task.employee_report == null || (typeof task.employee_report.description === 'string' &&
-      typeof task.employee_report.reported_at === 'string' && Number.isFinite(Date.parse(task.employee_report.reported_at)))));
+      typeof task.employee_report.reported_at === 'string' && Number.isFinite(Date.parse(task.employee_report.reported_at)))) &&
+    (task.employee_reports === undefined || Array.isArray(task.employee_reports) &&
+      task.employee_reports.every(entry => entry && typeof entry.description === 'string' &&
+        typeof entry.reported_at === 'string' && Number.isFinite(Date.parse(entry.reported_at)))));
 }
 async function loadLogs(key) {
   const request = ++generation;

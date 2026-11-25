@@ -94,9 +94,10 @@ These are the commands currently implemented in the bot:
 | `/start` | Start the bot and show the caller's access level. | Allowed users in allowed chats |
 | `/whoami` | Show the caller's Telegram user ID and chat ID. | Anyone who can message the bot |
 | `/task_assign` | Start a guided task assignment, asking one question at a time. | Users in `TELEGRAM_TASK_ASSIGN_USER_IDS`, in allowed chats |
-| `/task_lists` | Show today's tasks, assignments, and employee reports. | Both user lists, in allowed chats |
+| `/task_lists` | Choose a task by title, view its details, and add a report. | Both user lists, in allowed chats |
 | `/report` | Choose today's task and record an employee report. | Both user lists, in allowed chats |
 | `/carry` | Carry an unfinished task from an earlier date into today's log. | Users in `TELEGRAM_TASK_ASSIGN_USER_IDS`, in allowed chats |
+| `/end_task` | Mark one of your tasks complete so it will not carry forward. | Assigned engineer or task-assign users, in allowed chats |
 
 To show these in Telegram's command menu, open **@BotFather**, send `/setcommands`,
 select your bot, then paste:
@@ -105,10 +106,11 @@ select your bot, then paste:
 start - Start the bot and show the caller's access level.
 whoami - Show the caller's Telegram user ID and chat ID.
 task_assign - Start the guided task assignment.
-task_lists - Show today's tasks, assignments, and employee reports.
+task_lists - Browse task details and add a report.
 report - Choose a task and record an employee report.
 carry - Carry an unfinished task from an earlier date into today's log.
-cancel - Cancel the current task assignment or report.
+end_task - Mark a finished task complete so it will not carry forward.
+cancel - Cancel the current bot workflow.
 ```
 
 The BotFather menu only displays commands; actual access is enforced by this
@@ -134,8 +136,10 @@ Show all tasks for today:
 /task_lists
 ```
 
-Both user lists can use `/task_lists` in an allowed chat. Long task lists are
-sent as multiple messages.
+Both user lists can use `/task_lists` in an allowed chat. It shows task titles
+as buttons; choose one to view its complete details and report history. Use the
+**Add report** button on the detail card to submit a report directly for that
+task. Send `/cancel` to close the task list.
 
 Report progress on a task in today's log:
 
@@ -144,9 +148,13 @@ Report progress on a task in today's log:
 ```
 
 The bot shows today's tasks as buttons. Tap a task to select it, then send the
-report text; it can span multiple lines. Each new report is appended after the
-previous report for that task. Send `/cancel` to stop without saving. Both user
-lists can use `/report` in an allowed chat.
+report text; it can span multiple lines. Each report is saved separately with
+its own Myanmar date and time, and the dashboard shows the full report history.
+Send `/cancel` to stop without saving. Both user lists can use `/report` in an
+allowed chat.
+Reports submitted before report history was introduced remain visible as their
+existing combined entry; dates for earlier submissions cannot be reconstructed
+if they were not stored separately.
 
 Carry an unfinished task from an earlier date into today's log:
 
@@ -156,6 +164,9 @@ ID: task-001
 From date: 2026-11-25
 ```
 
-Only the task-assign user list can run `/carry` in an allowed chat. The source
-date must be earlier than today, and the task must exist on that date. The new
-entry starts without its previous employee report.
+Unfinished tasks automatically carry from the previous day in Myanmar time.
+Use `/end_task` and select a finished task to mark it complete; completed tasks
+will not carry forward. If an unfinished task carries into a day that still has
+sample preview data, the sample entries are automatically replaced. Engineers
+can end their own tasks, while task-assign users can end any task. `/carry`
+remains available for manual carry operations.
