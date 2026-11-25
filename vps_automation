@@ -12,3 +12,18 @@ sudo ss -ltnp | grep -E ':(80|443)[[:space:]]' || true
 sudo certbot certonly --standalone --cert-name todo.com -d todo.bynrobotics.com
 sudo certbot certificates
 
+sudo certbot certonly --standalone \
+  --cert-name todo.bynrobotics.com \
+  -d todo.bynrobotics.com
+
+sudo test -s /etc/letsencrypt/live/todo.bynrobotics.com/fullchain.pem \
+  && echo "Certificate OK"
+
+sudo test -s /etc/letsencrypt/live/todo.bynrobotics.com/privkey.pem \
+  && echo "Private key OK"
+
+
+sudo docker compose up -d --force-recreate nginx_proxy
+sudo docker compose exec nginx_proxy nginx -t
+sudo docker compose ps
+sudo docker compose logs --since=2m nginx_proxy
