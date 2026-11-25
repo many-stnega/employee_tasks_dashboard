@@ -119,20 +119,28 @@ if [ ! -f .env ]; then cp .env.example .env; fi
 chmod 600 .env
 ```
 
-Dashboard password hash ထုတ်ရန်:
+Dashboard login အတွက် သင်မှတ်မိနိုင်တဲ့ ပုံမှန် username နဲ့ password ကို
+သတ်မှတ်ရန် shell script ကို run ပါ။ `openssl` ကိုသုံးပြီး password ကို
+hash လုပ်သိမ်းပေးသလို session signing key ကိုလည်း random အရှည် 64-character
+hex value အဖြစ် အလိုအလျောက်ထုတ်ပေးပါတယ်။ Password ကို terminal မှာ မပြဘဲ
+နှစ်ကြိမ်ရိုက်ရပါမယ်:
 
 ```bash
-sudo docker run --rm -it python:3.12-slim sh -c 'pip install --quiet werkzeug && python -c "from werkzeug.security import generate_password_hash; import getpass; print(generate_password_hash(getpass.getpass()))"'
+./setup_dashboard_auth.sh
 ```
 
-Password ကို prompt မှာရိုက်ပါ။ Output hash ကို copy လုပ်ပါ။ Session secret သီးခြားထုတ်ရန်:
+ဒီ script က `.env` ထဲက Telegram နဲ့ domain setting တွေကို မပြောင်းဘဲ
+dashboard login အချက်အလက်တွေသာ update လုပ်ပြီး permission ကို `600` ထားပါတယ်။
+`WEB_DASHBOARD_SECRET_KEY` က login password မဟုတ်ပါ။ Browser session ကို
+လုံခြုံစွာ လက်မှတ်ထိုးဖို့ သီးခြား random key ဖြစ်တဲ့အတွက် အလွတ်ထားခြင်း၊
+တိုတောင်းတဲ့ password သုံးခြင်းမလုပ်ဘဲ script ကထုတ်ပေးတဲ့တန်ဖိုးကို သုံးပါ။
 
 ```bash
-python3 -c 'import secrets; print(secrets.token_hex(32))'
 nano .env
 ```
 
-`.env` ကို ဒီပုံစံ ဖြည့်ပါ။ နမူနာတန်ဖိုးတွေကို တကယ့်တန်ဖိုးတွေနဲ့ အစားထိုးရပါမယ်:
+Script run ပြီးနောက် `DOMAIN` နဲ့ Telegram token/IDs ကို `.env` ထဲမှာ
+ဖြည့်ပါ။ ဥပမာ:
 
 ```dotenv
 DOMAIN=dashboard.your-domain.com
@@ -140,12 +148,11 @@ TELEGRAM_BOT_TOKEN=YOUR_BOT_TOKEN
 TELEGRAM_TASK_ASSIGN_USER_IDS=
 TELEGRAM_STANDARD_USER_IDS=
 TELEGRAM_ALLOWED_CHAT_IDS=
-WEB_DASHBOARD_USERNAME=YOUR_LOGIN_USERNAME
-WEB_DASHBOARD_PASSWORD_HASH='PASTE_GENERATED_HASH_HERE'
-WEB_DASHBOARD_SECRET_KEY='PASTE_GENERATED_SECRET_HERE'
 ```
 
-Hash မှာ `$` ပါလို့ **single quotes** နဲ့ပိတ်ပါ။ Raw password ကို `.env` ထဲ မထည့်ပါနဲ့။ `.env` က shell script မဟုတ်တာကြောင့် `source .env` လုပ်ရန်မလိုပါ။ Docker Compose က ဖတ်ပေးပါတယ်။
+Hash ထဲက `$` တွေကို script က single quote နဲ့ရေးပေးတာကြောင့် ကိုယ်တိုင်
+copy/paste လုပ်ရန်မလိုပါ။ Raw password ကို `.env` ထဲ မသိမ်းပါ။ `.env` ကို
+`source` မလုပ်ဘဲ Docker Compose ကဖတ်ပါမယ်။
 
 Telegram IDs မသိသေးရင် allowlists သုံးခုကို ယာယီအလွတ်ထားပြီး အဆင့် ၇ အထိ ဆက်လုပ်နိုင်ပါတယ်။ Bot run ပြီးမှ `/whoami` နဲ့ ID ရယူပါ။ ID မဖြည့်သေးခင် task commands တွေကို ခွင့်မပြုပါ။
 
@@ -172,7 +179,9 @@ sudo docker compose ps
 sudo docker compose logs --tail=100 web-dashboard nginx_proxy
 ```
 
-`web-dashboard` က healthy ဖြစ်ပြီး `nginx_proxy` က running ဖြစ်ရပါမယ်။ Browser မှာ `https://dashboard.your-domain.com/` ဖွင့်ပြီး အဆင့် ၅ မှာ သတ်မှတ်တဲ့ username နဲ့ မူရင်း password ကို သုံးပါ။ Hash ကို password အဖြစ် မရိုက်ပါနဲ့။
+`web-dashboard` က healthy ဖြစ်ပြီး `nginx_proxy` က running ဖြစ်ရပါမယ်။ Browser မှာ `https://dashboard.your-domain.com/` ဖွင့်ပြီး အဆင့် ၅ မှာ
+သတ်မှတ်တဲ့ username နဲ့ password ကို သုံးပါ။ Hash ကို password အဖြစ်
+မရိုက်ပါနဲ့။
 
 ```bash
 curl -I https://dashboard.your-domain.com/

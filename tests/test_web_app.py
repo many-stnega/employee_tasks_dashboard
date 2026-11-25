@@ -1,8 +1,14 @@
 import os
 import unittest
 from pathlib import Path
+import warnings
+from unittest.mock import patch
 
 from werkzeug.security import generate_password_hash
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    import crypt
 
 os.environ.update({
     "WEB_DASHBOARD_USERNAME": "test-user",
@@ -64,6 +70,25 @@ class DashboardAuthenticationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertEqual(self.client.get("/").status_code, 302)
         self.assertEqual(self.client.get("/data/2026-11-25.json").status_code, 302)
+
+    def test_openssl_sha512_crypt_password_hash(self):
+        password_hash = crypt.crypt(
+            "test-password",
+            crypt.mksalt(crypt.METHOD_SHA512, rounds=500000),
+        )
+        self.assertIsNotNone(password_hash)
+        with patch.dict(os.environ, {"WEB_DASHBOARD_PASSWORD_HASH": password_hash}):
+            client = create_app().test_client()
+            token_response = client.get("/login")
+            token = token_response.get_data(as_text=True).split(
+                'name="csrf_token" value="', 1
+            )[1].split('"', 1)[0]
+            response = client.post("/login", data={
+                "csrf_token": token,
+                "username": "test-user",
+                "password": "test-password",
+            })
+        self.assertEqual(response.status_code, 302)
 
     def test_logout_requires_csrf_token_and_clears_session(self):
         self.sign_in()

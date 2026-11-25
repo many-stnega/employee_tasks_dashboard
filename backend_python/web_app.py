@@ -3,6 +3,7 @@
 import hmac
 import os
 import secrets
+import warnings
 from pathlib import Path
 
 from flask import (
@@ -17,9 +18,20 @@ from flask import (
 )
 from werkzeug.security import check_password_hash
 
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    import crypt
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WEB_ROOT = PROJECT_ROOT / "web_dashboard"
+
+
+def password_matches(password_hash: str, password: str) -> bool:
+    if password_hash.startswith("$6$"):
+        candidate = crypt.crypt(password, password_hash)
+        return candidate is not None and hmac.compare_digest(candidate, password_hash)
+    return check_password_hash(password_hash, password)
 
 
 def create_app() -> Flask:
@@ -32,7 +44,11 @@ def create_app() -> Flask:
         raise RuntimeError("WEB_DASHBOARD_PASSWORD_HASH must be configured.")
     if len(secret_key) < 32:
         raise RuntimeError("WEB_DASHBOARD_SECRET_KEY must contain at least 32 characters.")
-    check_password_hash(password_hash, "")
+    if password_hash.startswith("$6$"):
+        if crypt.crypt("", password_hash) is None:
+            raise RuntimeError("WEB_DASHBOARD_PASSWORD_HASH is not a valid SHA-512-crypt hash.")
+    else:
+        check_password_hash(password_hash, "")
 
     app = Flask(__name__, template_folder=str(WEB_ROOT))
     app.config.update(
@@ -84,8 +100,8 @@ def create_app() -> Flask:
                 abort(400, description="Invalid form token.")
             submitted_username = request.form.get("username", "")
             submitted_password = request.form.get("password", "")
-            password_matches = check_password_hash(password_hash, submitted_password)
-            if hmac.compare_digest(submitted_username, username) and password_matches:
+            password_valid = password_matches(password_hash, submitted_password)
+            if hmac.compare_digest(submitted_username, username) and password_valid:
                 session.clear()
                 session["authenticated"] = True
                 session.permanent = True
