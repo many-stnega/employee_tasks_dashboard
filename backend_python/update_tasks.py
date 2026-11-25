@@ -12,7 +12,12 @@ from urllib.parse import urlparse
 import re
 
 MMT = timezone(timedelta(hours=6, minutes=30))
-DEFAULT_DATA = Path(__file__).resolve().parents[1] / 'data'
+DEFAULT_DATA = Path(
+    os.environ.get(
+        'TASKS_DATA_DIR',
+        Path(__file__).resolve().parents[1] / 'json_data_records',
+    )
+)
 
 
 def day(value):

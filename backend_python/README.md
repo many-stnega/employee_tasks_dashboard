@@ -1,13 +1,13 @@
 # Agent data commands
 
-Run with Python 3.9+ on Linux. No extra packages or GitHub token are needed to edit local JSON. Paths are resolved relative to the script, so commands work from any directory. Examples below assume the repository root.
+Run with Python 3.9+ on Linux. No extra packages or GitHub token are needed to edit local JSON. By default, data is stored in the repository's `json_data_records/` directory; set `TASKS_DATA_DIR` or use `--data-dir` to choose another directory. Examples below assume the repository root.
 
 Global options (`--date`, `--data-dir`) go **before** the subcommand. Without `--date`, the script uses today in Myanmar time (UTC+06:30). `--data-dir` optionally targets another data directory.
 
 ## Add or update an assignment
 
 ```bash
-python3 employee_tasks_dashboard/agent_scripts/update_tasks.py --date 2026-11-25 assign_task \
+python3 backend_python/update_tasks.py --date 2026-11-25 assign_task \
   --id task-001 \
   --task workspace_bridge \
   --url https://github.com/your-org/workspace_bridge \
@@ -25,7 +25,7 @@ Sample files are protected against accidental mixing with real work. To explicit
 ## Record an employee report
 
 ```bash
-python3 employee_tasks_dashboard/agent_scripts/update_tasks.py --date 2026-11-25 report \
+python3 backend_python/update_tasks.py --date 2026-11-25 report \
   --id task-001 \
   --description 'API implementation is complete. Testing is in progress.' \
   --reported-at '2026-11-25T16:00:00+06:30'
@@ -36,7 +36,7 @@ The report appears in the right-hand Employee Report column. The assignment desc
 ## Carry an unfinished task to another day
 
 ```bash
-python3 employee_tasks_dashboard/agent_scripts/update_tasks.py --date 2026-11-26 carry \
+python3 backend_python/update_tasks.py --date 2026-11-26 carry \
   --id task-001 --from-date 2026-11-25
 ```
 
@@ -45,7 +45,7 @@ Only carry tasks the agent has confirmed are unfinished. The previous daily file
 ## Read the result
 
 ```bash
-python3 employee_tasks_dashboard/agent_scripts/update_tasks.py --date 2026-11-25 list
+python3 backend_python/update_tasks.py --date 2026-11-25 list
 ```
 
 Writes use a lock and atomic file replacement, preserving unrelated tasks and unknown fields. Invalid JSON is rejected without overwriting it. Commands return nonzero on errors. These commands do not send Telegram messages, schedule work, commit, push, or publish. After verifying the JSON, the agent must commit and push the changed daily file using its configured GitHub access for Pages to update. Keep private chat IDs and tokens out of public JSON.
