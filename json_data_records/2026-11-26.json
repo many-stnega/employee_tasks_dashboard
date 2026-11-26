@@ -11,7 +11,18 @@
       },
       "description": "Github Organization မှာ repo ဆောက်ပြီး နေ့စဥ် ညနေ ၄ နာရီတွင် ပြီးမြောက်ထားသော progress အား ရှင်းလင်းစွာရေးသားပေးပါရန်။ \nGithub Repo ကို ထည့်ပေးပါ။",
       "status": "active",
-      "updated_at": "2026-11-26T11:13:08+06:30"
+      "updated_at": "2026-11-26T16:50:14+06:30",
+      "employee_reports": [
+        {
+          "description": "Repo တင်ပြီးပါပီ။ \ngit@github.com:Open-Source-Robotics-For-Myanmar/Money_Baker.git \nData တွေထပ်စုနေပါတယ်။ မပြီးသေးပါဘူး။\ninvestor ချိတ်လို့ရတဲ့ platform 30 စုထားပါတယ်။ တခုချင်းရဲ့ စည်းကမ်းနဲ့ requirements တွေပြန်ဆွဲထုတ်နေပါတယ်။  Data က YC တင်တုန်းက သုံးတဲ့ Data ကိုပဲပြန်သုံးဖို့လုပ်ထားပါတယ်။ \nTo be Continued........",
+          "reported_at": "2026-11-26T16:50:14+06:30",
+          "reported_by": {
+            "id": 1605652713,
+            "name": "Phyu Pyar Chan Myae Kyaw",
+            "username": "Di_Qing_Bai"
+          }
+        }
+      ]
     },
     {
       "id": "20261126-02",
@@ -23,7 +34,18 @@
       },
       "description": "https://github.com/ROM-robotics/openxr_gazebo_plugin\nဒီ repo မှာ ဘာတွေ လုပ်ထားသလဲ \nတစ်ရက်စာ လုပ်ထားတဲ့အပိုင်းတွေကို ရှင်းလင်းစွာ ရေးသား report လုပ်ပေးပါ။",
       "status": "active",
-      "updated_at": "2026-11-26T11:19:08+06:30"
+      "updated_at": "2026-11-26T13:53:59+06:30",
+      "employee_reports": [
+        {
+          "description": "Meta quest မှာ Gazebo Camera View Streo OneXR Render ပြီး",
+          "reported_at": "2026-11-26T13:53:59+06:30",
+          "reported_by": {
+            "id": 6465664961,
+            "name": "Dolores",
+            "username": "DoloresAx"
+          }
+        }
+      ]
     },
     {
       "id": "20261126-03",
@@ -34,10 +56,34 @@
         "user_id": 1652694056
       },
       "description": "ကိုမင်းခေါင်ရဲ့ စာရွက်နှင့် ဟိန်းထက်ရဲ့ စာရွက်များအား ဘာသာာပြန်ပြီး print ထုတ်ပေးပါ။",
+      "status": "completed",
+      "updated_at": "2026-11-26T14:02:25+06:30",
+      "employee_reports": [
+        {
+          "description": "နှစ်ခုလုံးဘာသာပြန်ပြီး၊ print ထုတ်ပြီး၊",
+          "reported_at": "2026-11-26T14:01:24+06:30",
+          "reported_by": {
+            "id": 1652694056,
+            "name": "NULL",
+            "username": "ZymE3"
+          }
+        }
+      ],
+      "completed_at": "2026-11-26T14:02:25+06:30"
+    },
+    {
+      "id": "20261126-04",
+      "created_at": "2026-11-26T13:24:25+06:30",
+      "task": "RK3588 SDK တည်ဆောက်ခြင်း နှင့် Vision AI Box Project",
+      "assigned_to": {
+        "username": "kyawswarhtunlinnaung",
+        "user_id": 1425773854
+      },
+      "description": "git@github.com:Open-Source-Robotics-For-Myanmar/Rockstar.git\n\nSDK တည်ဆောက်ပုံနှင့် Cross Build နည်းလမ်းများ \ndemo C++ app နှင့် Vision AI Box Deployment လုပ်ခြင်း",
       "status": "active",
-      "updated_at": "2026-11-26T11:21:49+06:30"
+      "updated_at": "2026-11-26T13:24:25+06:30"
     }
   ],
-  "updated_at": "2026-11-26T11:21:49+06:30",
+  "updated_at": "2026-11-26T16:50:14+06:30",
   "demo": false
 }
