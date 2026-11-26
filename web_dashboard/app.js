@@ -176,7 +176,12 @@ async function loadLogs(key) {
     $('task-count').textContent = `${data.tasks.length} task log${data.tasks.length === 1 ? '' : 's'}`;
     $('updated-at').textContent = time(data.updated_at) ? `Last update ${time(data.updated_at)} · MMT` : '';
     $('demo-notice').hidden = data.demo !== true;
-    if (data.tasks.length) $('logs').replaceChildren(...data.tasks.map(card));
+    const updatedTime = task => {
+      const timestamp = Date.parse(task.updated_at);
+      return Number.isFinite(timestamp) ? timestamp : -Infinity;
+    };
+    const sortedTasks = [...data.tasks].sort((a, b) => updatedTime(b) - updatedTime(a));
+    if (sortedTasks.length) $('logs').replaceChildren(...sortedTasks.map(card));
     else message('No logs for this day', 'Choose another date from the calendar.');
   } catch (error) {
     if (request !== generation || error.name === 'AbortError') return;
