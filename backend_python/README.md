@@ -91,3 +91,10 @@ python3 backend_python/update_tasks.py --date 2026-11-25 list
 ```
 
 Writes use a lock and atomic file replacement, preserving unrelated tasks and unknown fields. Invalid JSON is rejected without overwriting it. Commands return nonzero on errors. These commands do not send Telegram messages, schedule work, commit, push, or publish. After verifying the JSON, the agent must commit and push the changed daily file using its configured GitHub access for Pages to update. Keep private chat IDs and tokens out of public JSON.
+
+Reports submitted through Telegram store the submitting user's ID, display name,
+and available username in each report's `reported_by` object. This is independent
+of the task assignee, including in group chats. The dashboard displays “Report by”
+for each entry; older reports without this metadata show “Unknown (not recorded)”.
+CLI callers can supply `--reporter-id`, `--reporter-name`, and
+`--reporter-username`; these remain optional for existing integrations.

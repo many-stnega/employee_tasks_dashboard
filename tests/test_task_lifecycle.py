@@ -63,6 +63,30 @@ class TaskLifecycleTests(unittest.TestCase):
         self.run_command('2026-09-03', 'carry_forward', '--from-date', '2026-09-01')
         self.assertEqual(before, {p.name: p.read_bytes() for p in self.folder.glob('*.json')})
 
+    def test_reports_preserve_each_author_and_legacy_history(self):
+        day = '2026-09-01'
+        self.assign(day)
+        data = self.read(day)
+        legacy = {'description': 'Old report', 'reported_at': day + 'T09:00:00+06:30'}
+        data['tasks'][0]['employee_report'] = legacy
+        (self.folder / f'{day}.json').write_text(json.dumps(data))
+        for user_id, name, extra in (
+            ('2', 'Another Employee', ['--reporter-username', 'other_employee']),
+            ('3', 'No Username', []),
+        ):
+            self.run_command(day, 'report', '--id', '20260901-01',
+                             '--description', 'Progress', '--reported-at', day + 'T10:00:00+06:30',
+                             '--reporter-id', user_id, '--reporter-name', name, *extra)
+        self.assign(day)
+        task = self.read(day)['tasks'][0]
+        self.assertNotIn('employee_report', task)
+        self.assertEqual(task['assigned_to']['username'], 'employee')
+        self.assertEqual(task['employee_reports'][0], legacy)
+        self.assertEqual(task['employee_reports'][1]['reported_by'],
+                         {'id': 2, 'name': 'Another Employee', 'username': 'other_employee'})
+        self.assertEqual(task['employee_reports'][2]['reported_by'],
+                         {'id': 3, 'name': 'No Username'})
+
     def test_completed_task_keyboard_has_no_report_button(self):
         keyboard = bot.task_detail_keyboard({'status': 'completed'})
         self.assertEqual([button.callback_data for row in keyboard.inline_keyboard for button in row], ['task_list_back'])

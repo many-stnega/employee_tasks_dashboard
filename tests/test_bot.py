@@ -11,7 +11,7 @@ from backend_python import bot
 class EndTaskAuthorizationTests(unittest.IsolatedAsyncioTestCase):
     def make_request(self, user_id=1, chat_id=-100, managers=None):
         update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=user_id, username="employee"),
+            effective_user=SimpleNamespace(id=user_id, username="employee", full_name="Report Writer"),
             effective_chat=SimpleNamespace(id=chat_id),
             effective_message=SimpleNamespace(reply_text=AsyncMock()),
             callback_query=SimpleNamespace(
@@ -76,10 +76,14 @@ class ReportNotificationTests(unittest.IsolatedAsyncioTestCase):
                     context.user_data[f"{bot.task_list_key(update)}:report_task"] = task
                     context.bot_data["report_received_chat_ids"] = {11, -200}
                     context.bot = SimpleNamespace(send_message=AsyncMock())
-                    with patch.object(bot, "run_task_update", new_callable=AsyncMock, return_value=saved), patch.object(
+                    with patch.object(bot, "run_task_update", new_callable=AsyncMock, return_value=saved) as save, patch.object(
                         bot, "load_today_task_data", new_callable=AsyncMock, return_value={"tasks": [task]}
                     ):
                         await handler(update, context)
+                    command = save.call_args.args[1]
+                    self.assertEqual(command[command.index("--reporter-id") + 1], "2")
+                    self.assertEqual(command[command.index("--reporter-name") + 1], "Report Writer")
+                    self.assertEqual(command[command.index("--reporter-username") + 1], "employee")
                     calls = context.bot.send_message.await_args_list
                     self.assertEqual({call.kwargs['chat_id'] for call in calls}, {11, -200} if saved else set())
                     for call in calls:
@@ -100,6 +104,12 @@ class ReportNotificationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([call.kwargs['chat_id'] for call in calls], [-200, 11, 11, 11])
         self.assertTrue(all(len(call.kwargs['text']) <= 4000 for call in calls))
         self.assertIn("Report saved", update.effective_message.reply_text.call_args.args[0])
+
+    def test_reporter_without_username_uses_display_name_and_id(self):
+        update, _ = EndTaskAuthorizationTests().make_request()
+        update.effective_user.username = None
+        self.assertEqual(bot.reporter_arguments(update),
+                         ["--reporter-id", "1", "--reporter-name", "Report Writer"])
 
     async def test_empty_recipients_send_nothing(self):
         update, context = EndTaskAuthorizationTests().make_request()

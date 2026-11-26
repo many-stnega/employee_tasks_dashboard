@@ -171,6 +171,9 @@ def main():
     report = commands.add_parser('report', help='Record an employee reply for an existing task.')
     report.add_argument('--id', required=True, type=nonempty)
     report.add_argument('--description', required=True, type=nonempty)
+    report.add_argument('--reporter-id', type=int, help='Telegram user ID of the person submitting the report.')
+    report.add_argument('--reporter-name', type=nonempty, help='Telegram display name of the reporter.')
+    report.add_argument('--reporter-username', type=nonempty, help='Telegram username of the reporter.')
     report.add_argument('--reported-at', help='ISO timestamp with timezone; defaults to now.')
     carry = commands.add_parser('carry', help='Copy one assignment from an earlier day, without its old report.')
     carry.add_argument('--id', required=True, type=nonempty)
@@ -238,10 +241,20 @@ def main():
                         reports.append(previous_report)
                 elif not isinstance(reports, list):
                     raise ValueError(f'Invalid employee reports for {args.id}')
-                reports.append({
+                entry = {
                     'description': args.description,
                     'reported_at': reported.isoformat(timespec='seconds'),
-                })
+                }
+                reporter = {
+                    key: value for key, value in {
+                        'id': args.reporter_id,
+                        'name': args.reporter_name,
+                        'username': args.reporter_username,
+                    }.items() if value is not None
+                }
+                if reporter:
+                    entry['reported_by'] = reporter
+                reports.append(entry)
                 task['employee_reports'] = reports
                 task.pop('employee_report', None)
             elif args.command == 'carry':

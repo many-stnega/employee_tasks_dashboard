@@ -1,10 +1,27 @@
 'use strict';
 // Daily files: { date: 'YYYY-MM-DD', updated_at: ISO timestamp, demo: boolean,
 // tasks: [{ id, task, assigned_to: {username},
-// description, employee_reports?: [{description, reported_at: ISO timestamp}],
+// description, employee_reports?: [{description, reported_at: ISO timestamp, reported_by?: {id, name, username}}],
 // updated_at: ISO timestamp }] }. Legacy repo/name fields remain readable.
 // Dates and timestamps are displayed in Asia/Yangon. No credentials or writes.
 const TIME_ZONE = 'Asia/Yangon';
+const ENGINEER_NAMES = new Map([
+  ['di_qing_bai', 'PhyuPyarChanMyaeKyaw'],
+  ['doloresax', 'Aung Khant Moe'],
+  ['zyme3', 'Htet Wai Yan'],
+  ['hmue_gyi', 'Hmue Sat San'],
+  ['kyawswarhtunlinnaung', 'Kyaw Swar Htun'],
+  ['karmine', 'Yu Yu Aung'],
+]);
+function telegramLabel(username, fallbackName = '') {
+  const handle = username.replace(/^@/, '');
+  const name = ENGINEER_NAMES.get(handle.toLowerCase()) || fallbackName;
+  return handle ? `@${handle}${name ? ` - ${name}` : ''}` : name;
+}
+function telegramProfile(username) {
+  const handle = username.replace(/^@/, '');
+  return /^[a-zA-Z0-9_]{5,32}$/.test(handle) ? `https://t.me/${handle}` : undefined;
+}
 const $ = id => document.getElementById(id);
 function todayKey() {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
@@ -66,26 +83,35 @@ function card(task) {
   const employee = node('div', 'employee');
   const assignee = task.assigned_to;
   const username = (typeof assignee === 'string' ? assignee : assignee.username || assignee.name || '').replace(/^@/, '');
-  const profile = /^[a-zA-Z0-9_]{5,32}$/.test(username) ? `https://t.me/${username}` : undefined;
-  employee.append(node('span', 'field-label', 'Engineer'), linkOrText(`@${username}`, profile, 'person'));
+  const profile = telegramProfile(username);
+  employee.append(node('span', 'field-label', 'Engineer'), linkOrText(telegramLabel(username), profile, 'person'));
   top.append(taskTitle, employee);
   const body = node('div', 'description-columns');
   const assignment = node('section', 'description assignment');
   assignment.append(node('span', 'field-label', 'Description'), node('p', '', task.description));
   const report = node('section', 'description employee-report');
-  report.append(node('span', 'field-label', 'Employee Report'));
+  report.append(node('span', 'field-label', 'Engineer Report'));
   const reports = task.employee_reports || (task.employee_report ? [task.employee_report] : []);
   if (reports.length) {
     for (const entry of reports) {
       const reportEntry = node('div', 'report-entry');
       reportEntry.append(node('p', '', entry.description));
+      const reporter = entry.reported_by;
+      const reporterName = reporter?.name || '';
+      const reporterUsername = reporter?.username || '';
+      const reporterLabel = telegramLabel(reporterUsername, reporterName) ||
+        (reporter?.id != null ? `Telegram ID ${reporter.id}` : 'Unknown (not recorded)');
+      const author = node('div', 'report-author');
+      author.append(document.createTextNode('Report by: '),
+        linkOrText(reporterLabel, telegramProfile(reporterUsername), ''));
+      reportEntry.append(author);
       const reported = node('time', 'report-time', `Reported ${reportDateTime(entry.reported_at)} · MMT`);
       reported.dateTime = entry.reported_at;
       reportEntry.append(reported);
       report.append(reportEntry);
     }
   } else {
-    report.append(node('p', 'report-pending', 'Awaiting employee report.'));
+    report.append(node('p', 'report-pending', 'Awaiting Engineer Report'));
   }
   body.append(assignment, report);
   const bottom = node('div', 'card-bottom');

@@ -17,7 +17,7 @@ from backend_python import bot
 class GroupAndCarryTests(unittest.IsolatedAsyncioTestCase):
     def request(self, user=9, chat=-200):
         update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=user, username='employee'),
+            effective_user=SimpleNamespace(id=user, username='employee', full_name='Group Reporter'),
             effective_chat=SimpleNamespace(id=chat),
             effective_message=SimpleNamespace(reply_text=AsyncMock(), text='Progress'),
             callback_query=SimpleNamespace(answer=AsyncMock(), edit_message_text=AsyncMock(), data='end_task:0'),
@@ -36,7 +36,7 @@ class GroupAndCarryTests(unittest.IsolatedAsyncioTestCase):
         for handler in (bot.task_assign_start, bot.end_task_start, bot.end_task_select):
             self.assertEqual(await handler(update, context), ConversationHandler.END)
             self.assertIn('not authorized', (update.callback_query.edit_message_text if handler == bot.end_task_select else update.effective_message.reply_text).call_args.args[0])
-        task = {'id': '20261126-01', 'task': 'Task', 'assigned_to': {'username': 'employee'}}
+        task = {'id': '20261126-01', 'task': 'Task', 'assigned_to': {'username': 'other_employee'}}
         for handler in (bot.report_save, bot.task_list_report_save):
             context.user_data[bot.report_key(update)] = task
             context.user_data[f'{bot.task_list_key(update)}:report_task'] = task
@@ -45,6 +45,9 @@ class GroupAndCarryTests(unittest.IsolatedAsyncioTestCase):
                     bot, 'load_today_task_data', new_callable=AsyncMock, return_value={'tasks': [task]}):
                 await handler(update, context)
                 save.assert_awaited_once()
+                command = save.call_args.args[1]
+                self.assertEqual(command[command.index('--reporter-id') + 1], '9')
+                self.assertEqual(command[command.index('--reporter-name') + 1], 'Group Reporter')
             self.assertEqual([call.kwargs['chat_id'] for call in context.bot.send_message.await_args_list], [-200, 1])
 
     def test_group_permission_does_not_grant_access_elsewhere_or_when_disabled(self):

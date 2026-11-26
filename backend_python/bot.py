@@ -489,6 +489,14 @@ async def report_select_task(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return REPORT_DESCRIPTION
 
 
+def reporter_arguments(update: Update) -> list[str]:
+    user = update.effective_user
+    args = ["--reporter-id", str(user.id), "--reporter-name", user.full_name]
+    if user.username:
+        args.extend(["--reporter-username", user.username])
+    return args
+
+
 async def report_save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if not report_authorized(update, context.bot_data):
         context.user_data.pop(report_key(update), None)
@@ -514,6 +522,7 @@ async def report_save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         task["id"],
         "--description",
         description,
+        *reporter_arguments(update),
     ]
     context.user_data.pop(report_key(update), None)
     if await run_task_update(update, command, task["id"], "report"):
@@ -776,6 +785,7 @@ async def task_list_report_save(
         task["id"],
         "--description",
         description,
+        *reporter_arguments(update),
     ]
     saved = await run_task_update(update, command, task["id"], "report")
     if saved:
