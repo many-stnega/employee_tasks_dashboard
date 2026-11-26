@@ -102,7 +102,7 @@ function card(task) {
       const reporterLabel = telegramLabel(reporterUsername, reporterName) ||
         (reporter?.id != null ? `Telegram ID ${reporter.id}` : 'Unknown (not recorded)');
       const author = node('div', 'report-author');
-      author.append(document.createTextNode('Report by: '),
+      author.append(node('span', 'report-author-label', 'Report by: '),
         linkOrText(reporterLabel, telegramProfile(reporterUsername), ''));
       reportEntry.append(author);
       const reported = node('time', 'report-time', `Reported ${reportDateTime(entry.reported_at)} · MMT`);
