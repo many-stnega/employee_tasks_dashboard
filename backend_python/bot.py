@@ -9,7 +9,7 @@ import subprocess
 import sys
 from datetime import date, datetime, timedelta, timezone
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import ForceReply, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.error import TelegramError
 from telegram.ext import (
     Application,
@@ -103,6 +103,37 @@ def authorized(update: Update, user_ids: set[int], chat_ids: set[int]) -> bool:
     user = update.effective_user
     chat = update.effective_chat
     return user is not None and chat is not None and user.id in user_ids and chat.id in chat_ids
+
+
+def report_authorized(update: Update, settings: dict) -> bool:
+    user, chat = update.effective_user, update.effective_chat
+    if (user is not None and chat is not None
+            and settings.get("group_chat_allowed")
+            and chat.id == settings.get("group_chat_id")):
+        return True
+    return authorized(update, settings["task_assign_user_ids"] | settings["standard_user_ids"],
+                      settings["allowed_chat_ids"])
+
+
+def env_yes(name: str) -> bool:
+    value = os.environ.get(name, "no").strip().lower()
+    if value not in {"yes", "no", ""}:
+        raise ValueError(f"{name} must be yes or no.")
+    return value == "yes"
+
+
+def group_settings() -> dict:
+    ids = allowed_ids("TELEGRAM_GROUP_CHAT_ID")
+    if len(ids) > 1 or any(value >= 0 for value in ids):
+        raise ValueError("TELEGRAM_GROUP_CHAT_ID must be one negative group chat ID.")
+    settings = {
+        "group_chat_id": next(iter(ids), None),
+        "group_chat_allowed": env_yes("TELEGRAM_GROUP_CHAT_ALLOWED"),
+        "report_received_group_chat": env_yes("TELEGRAM_REPORT_RECEIVED_GROUP_CHAT"),
+    }
+    if not ids and (settings["group_chat_allowed"] or settings["report_received_group_chat"]):
+        raise ValueError("TELEGRAM_GROUP_CHAT_ID is required when group features are enabled.")
+    return settings
 
 
 def parse_carry(text: str) -> dict[str, str]:
@@ -312,6 +343,8 @@ async def task_assign_answer(update: Update, context: ContextTypes.DEFAULT_TYPE)
         fields["task"],
         "--username",
         fields["username"],
+        "--user-id",
+        str(fields["employee_id"]),
         "--description",
         fields["description"],
     ]
@@ -369,11 +402,7 @@ async def cancel_task_assign(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def report_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    allowed_user_ids = (
-        context.bot_data["task_assign_user_ids"]
-        | context.bot_data["standard_user_ids"]
-    )
-    if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
+    if not report_authorized(update, context.bot_data):
         await update.effective_message.reply_text(
             "You are not authorized to report tasks in this chat."
         )
@@ -425,11 +454,7 @@ async def report_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 async def report_select_task(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
-    allowed_user_ids = (
-        context.bot_data["task_assign_user_ids"]
-        | context.bot_data["standard_user_ids"]
-    )
-    if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
+    if not report_authorized(update, context.bot_data):
         context.user_data.pop(report_key(update), None)
         await query.edit_message_text(
             "You are not authorized to report tasks in this chat."
@@ -459,15 +484,13 @@ async def report_select_task(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"Engineer: @{task_username(selected_task)}\n\n"
         "Send the report below. New reports will be added after previous reports."
     )
+    if context.bot_data.get("group_chat_allowed") and update.effective_chat.id == context.bot_data.get("group_chat_id"):
+        await update.effective_message.reply_text("Reply to this message with your report.", reply_markup=ForceReply())
     return REPORT_DESCRIPTION
 
 
 async def report_save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    allowed_user_ids = (
-        context.bot_data["task_assign_user_ids"]
-        | context.bot_data["standard_user_ids"]
-    )
-    if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
+    if not report_authorized(update, context.bot_data):
         context.user_data.pop(report_key(update), None)
         await update.effective_message.reply_text(
             "You are not authorized to report tasks in this chat."
@@ -512,7 +535,10 @@ async def notify_report_received(
         "", description,
     ])
     failed = 0
-    for chat_id in sorted(context.bot_data.get("report_received_chat_ids", set())):
+    recipients = set(context.bot_data.get("report_received_chat_ids", set()))
+    if context.bot_data.get("report_received_group_chat") and context.bot_data.get("group_chat_id"):
+        recipients.add(context.bot_data["group_chat_id"])
+    for chat_id in sorted(recipients):
         try:
             for chunk in telegram_message_chunks(message):
                 await context.bot.send_message(chat_id=chat_id, text=chunk)
@@ -556,7 +582,14 @@ async def carry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except ValueError as error:
         await update.effective_message.reply_text(f"Invalid task carry: {error}")
         return
-    await run_task_update(update, command, fields["id"], "carry")
+    if await run_task_update(update, command, fields["id"], "carry"):
+        try:
+            data = await load_today_task_data()
+            task = next(task for task in data["tasks"] if task["id"] == fields["id"])
+            await notify_carried_tasks(context, [task], data["date"])
+        except (OSError, RuntimeError, ValueError, StopIteration):
+            logging.exception("Task carried but could not prepare its notification.")
+            await update.effective_message.reply_text("Task carried, but its notification could not be prepared.")
 
 
 def task_list_selection_keyboard(tasks: list[dict]) -> InlineKeyboardMarkup:
@@ -623,11 +656,7 @@ async def load_today_task_data() -> dict:
 
 
 async def task_lists(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    allowed_user_ids = (
-        context.bot_data["task_assign_user_ids"]
-        | context.bot_data["standard_user_ids"]
-    )
-    if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
+    if not report_authorized(update, context.bot_data):
         await update.effective_message.reply_text(
             "You are not authorized to view task lists in this chat."
         )
@@ -653,11 +682,7 @@ async def task_lists(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def task_list_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
-    allowed_user_ids = (
-        context.bot_data["task_assign_user_ids"]
-        | context.bot_data["standard_user_ids"]
-    )
-    if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
+    if not report_authorized(update, context.bot_data):
         context.user_data.pop(task_list_key(update), None)
         await query.edit_message_text("You are not authorized to view task lists in this chat.")
         return ConversationHandler.END
@@ -682,11 +707,7 @@ async def task_list_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 async def task_list_back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
-    allowed_user_ids = (
-        context.bot_data["task_assign_user_ids"]
-        | context.bot_data["standard_user_ids"]
-    )
-    if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
+    if not report_authorized(update, context.bot_data):
         context.user_data.pop(task_list_key(update), None)
         await query.edit_message_text("You are not authorized to view task lists in this chat.")
         return ConversationHandler.END
@@ -706,11 +727,7 @@ async def task_list_report_start(
 ) -> int:
     query = update.callback_query
     await query.answer()
-    allowed_user_ids = (
-        context.bot_data["task_assign_user_ids"]
-        | context.bot_data["standard_user_ids"]
-    )
-    if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
+    if not report_authorized(update, context.bot_data):
         await query.edit_message_text("You are not authorized to report tasks in this chat.")
         return ConversationHandler.END
     data = context.user_data.get(task_list_key(update))
@@ -731,17 +748,15 @@ async def task_list_report_start(
         f"📝 Report for {task_name(task)}\n\n"
         "Send your report as a message. It will be added to the report history."
     )
+    if context.bot_data.get("group_chat_allowed") and update.effective_chat.id == context.bot_data.get("group_chat_id"):
+        await update.effective_message.reply_text("Reply to this message with your report.", reply_markup=ForceReply())
     return TASK_LIST_REPORT_DESCRIPTION
 
 
 async def task_list_report_save(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> int:
-    allowed_user_ids = (
-        context.bot_data["task_assign_user_ids"]
-        | context.bot_data["standard_user_ids"]
-    )
-    if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
+    if not report_authorized(update, context.bot_data):
         context.user_data.pop(task_list_key(update), None)
         await update.effective_message.reply_text("You are not authorized to report tasks in this chat.")
         return ConversationHandler.END
@@ -871,7 +886,37 @@ async def end_task_select(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     return ConversationHandler.END
 
 
-async def auto_carry_forward(target_date: str) -> None:
+async def notify_carried_tasks(context, tasks: list[dict], target_date: str) -> None:
+    for task in tasks:
+        recipients = set()
+        assigned_to = task.get("assigned_to", {})
+        recipient = assigned_to.get("user_id") if isinstance(assigned_to, dict) else None
+        if recipient is None:
+            # Older records only stored usernames; resolve against known employees.
+            for user_id in sorted(context.bot_data["standard_user_ids"]):
+                try:
+                    profile = await context.bot.get_chat(user_id)
+                    if (profile.username or "").casefold() == task_username(task).lstrip('@').casefold():
+                        recipient = user_id
+                        break
+                except TelegramError:
+                    logging.exception("Could not resolve carry recipient %s.", user_id)
+        if recipient is not None:
+            recipients.add(recipient)
+        else:
+            logging.warning("No private chat ID found for carried task %s.", task['id'])
+        if context.bot_data.get("group_chat_allowed") and context.bot_data.get("group_chat_id"):
+            recipients.add(context.bot_data["group_chat_id"])
+        text = f"📋 Task carried to {target_date}\n\n{task_detail_text(task, target_date)}"
+        for chat_id in sorted(recipients):
+            try:
+                for chunk in telegram_message_chunks(text):
+                    await context.bot.send_message(chat_id=chat_id, text=chunk)
+            except TelegramError:
+                logging.exception("Could not deliver carry notification for task %s to %s.", task['id'], chat_id)
+
+
+async def auto_carry_forward(target_date: str, application) -> None:
     folder = data_directory()
     source_dates = []
     for path in folder.glob("*.json"):
@@ -905,32 +950,40 @@ async def auto_carry_forward(target_date: str) -> None:
         "carry_forward",
         "--from-date",
         max(source_dates),
+        "--json-result",
     ]
     result = subprocess.run(command, capture_output=True, text=True, check=False)
     if result.returncode:
         detail = result.stderr.strip() or result.stdout.strip()
         raise RuntimeError(f"Automatic carry-forward failed: {detail}")
-    logging.info(result.stdout.strip())
+    carried = json.loads(result.stdout)
+    await notify_carried_tasks(application, carried, target_date)
+    logging.info("Carried %s tasks into %s.", len(carried), target_date)
 
 
-async def task_rollover_loop() -> None:
+def carry_schedule(now: datetime) -> tuple[bool, datetime]:
+    morning = now.replace(hour=9, minute=0, second=0, microsecond=0)
+    return now >= morning, morning if now < morning else morning + timedelta(days=1)
+
+
+async def task_rollover_loop(application) -> None:
     mmt = timezone(timedelta(hours=6, minutes=30))
     while True:
         now = datetime.now(mmt)
+        due, next_run = carry_schedule(now)
         try:
-            await auto_carry_forward(now.date().isoformat())
-        except (OSError, RuntimeError) as error:
+            if due:
+                await auto_carry_forward(now.date().isoformat(), application)
+        except (OSError, RuntimeError, ValueError):
             logging.exception("Could not carry unfinished tasks forward.")
             wait_seconds = 60
         else:
-            tomorrow = now.date() + timedelta(days=1)
-            next_midnight = datetime.combine(tomorrow, datetime.min.time(), tzinfo=mmt)
-            wait_seconds = max(1, (next_midnight - datetime.now(mmt)).total_seconds())
+            wait_seconds = max(1, (next_run - datetime.now(mmt)).total_seconds())
         await asyncio.sleep(wait_seconds)
 
 
 async def application_post_init(application: Application) -> None:
-    application.bot_data["task_rollover_job"] = asyncio.create_task(task_rollover_loop())
+    application.bot_data["task_rollover_job"] = asyncio.create_task(task_rollover_loop(application))
 
 
 async def application_post_shutdown(application: Application) -> None:
@@ -944,11 +997,7 @@ async def application_post_shutdown(application: Application) -> None:
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    allowed_user_ids = (
-        context.bot_data["task_assign_user_ids"]
-        | context.bot_data["standard_user_ids"]
-    )
-    if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
+    if not report_authorized(update, context.bot_data):
         await update.effective_message.reply_text("This user or chat is not authorized.")
         return
     role = (
@@ -986,6 +1035,9 @@ def main() -> None:
         )
         chat_ids = allowed_ids("TELEGRAM_ALLOWED_CHAT_IDS")
         report_received_chat_ids = allowed_ids("TELEGRAM_REPORT_RECEIVED_CHAT_IDS")
+        group = group_settings()
+        if group["group_chat_allowed"]:
+            chat_ids.add(group["group_chat_id"])
     except ValueError as error:
         raise SystemExit(f"Telegram bot configuration error: {error}") from error
 
@@ -1005,6 +1057,7 @@ def main() -> None:
     application.bot_data["standard_user_ids"] = standard_user_ids
     application.bot_data["allowed_chat_ids"] = chat_ids
     application.bot_data["report_received_chat_ids"] = report_received_chat_ids
+    application.bot_data.update(group)
     task_assign_conversation = ConversationHandler(
         entry_points=[CommandHandler("task_assign", task_assign_start)],
         states={

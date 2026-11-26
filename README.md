@@ -1,6 +1,6 @@
 # Employee Tasks Dashboard
 
-ဝန်ထမ်းအလုပ်များကို Telegram bot ကနေ assign လုပ်၊ နေ့စဉ် report တင်ပြီး Web Dashboard မှာ ရက်အလိုက် ကြည့်နိုင်တဲ့ project ဖြစ်ပါတယ်။ မပြီးသေးတဲ့ task တွေကို မြန်မာအချိန် နေ့ကူးချိန်မှာ နောက်နေ့ဆက်သယ်ပြီး `/end_task` နဲ့ အဆုံးသတ်ထားတဲ့ task တွေကို ဆက်မသယ်တော့ပါ။
+ဝန်ထမ်းအလုပ်များကို Telegram bot ကနေ assign လုပ်၊ နေ့စဉ် report တင်ပြီး Web Dashboard မှာ ရက်အလိုက် ကြည့်နိုင်တဲ့ project ဖြစ်ပါတယ်။ မပြီးသေးတဲ့ task တွေကို မြန်မာအချိန် မနက် ၉ နာရီမှာ နောက်နေ့ဆက်သယ်ပြီး `/end_task` နဲ့ အဆုံးသတ်ထားတဲ့ task တွေကို ဆက်မသယ်တော့ပါ။
 
 ## Project အလုပ်လုပ်ပုံ
 
@@ -147,6 +147,9 @@ TELEGRAM_TASK_ASSIGN_USER_IDS=
 TELEGRAM_STANDARD_USER_IDS=
 TELEGRAM_ALLOWED_CHAT_IDS=
 TELEGRAM_REPORT_RECEIVED_CHAT_IDS=
+TELEGRAM_GROUP_CHAT_ID=
+TELEGRAM_GROUP_CHAT_ALLOWED=no
+TELEGRAM_REPORT_RECEIVED_GROUP_CHAT=no
 ```
 
 Hash ထဲက `$` တွေကို script က single quote နဲ့ရေးပေးတာကြောင့် ကိုယ်တိုင်
@@ -238,7 +241,7 @@ Task အသစ်များရဲ့ ID ကို မြန်မာအချ�
 `/report` သို့မဟုတ် `/task_lists` ကနေ report သိမ်းပြီးတိုင်း `TELEGRAM_REPORT_RECEIVED_CHAT_IDS` ထဲက chat များဆီ task ID၊ task name၊ report တင်သူနဲ့ report စာသားကို ပို့ပါတယ်။ Private message လက်ခံမယ့်သူက bot ကို `/start` ပို့ထားရပါမယ်။ Variable အလွတ်ထားရင် notification မပို့ပါ။
 6. `/cancel` က လက်ရှိအပြန်အလှန်ဖြည့်နေတဲ့ workflow ကို ရပ်ပေးပါတယ်။
 
-မပြီးသေးတဲ့ task တွေကို bot startup နဲ့ မြန်မာအချိန် နေ့ကူးချိန်တွေမှာ carry စစ်ပါတယ်။ နေ့သစ်ထဲက carried task ရဲ့ report history က အသစ်စပါတယ်။ Manual carry လိုရင် admin က:
+မပြီးသေးတဲ့ task တွေကို မြန်မာအချိန် မနက် ၉ နာရီမှာ (သို့မဟုတ် ၉ နာရီကျော်မှ bot ပြန်တက်ချိန်မှာ) carry စစ်ပါတယ်။ နေ့သစ်ထဲက carried task ရဲ့ report history က အသစ်စပါတယ်။ Manual carry လိုရင် admin က:
 
 ```text
 /carry
@@ -364,3 +367,5 @@ References:
 - [nginx_proxy/default.conf.template](nginx_proxy/default.conf.template)
 - [automation](automation)
 - [cronjob](cronjob)
+
+Group သုံးရန် `TELEGRAM_GROUP_CHAT_ID` နဲ့ `TELEGRAM_GROUP_CHAT_ALLOWED=yes` ထည့်ပါ။ Group အဖွဲ့ဝင်တွေက `/start`, `/task_lists`, `/report` သုံးနိုင်ပြီး report ကို bot မေးထားတဲ့ message ကို reply ပြန်တင်ပါ။ Task assign၊ end_task နဲ့ manual carry ကို admin တွေပဲ လုပ်နိုင်ပါတယ်။ `TELEGRAM_REPORT_RECEIVED_GROUP_CHAT=yes` ထားရင် report notification ကို group ထဲပါ ပို့ပါတယ်။ Auto carry က မနက် ၉ နာရီ MMT မှာလုပ်ပြီး task တာဝန်ယူထားသူနဲ့ enabled group ကို ပို့ပါတယ်။ ၉ နာရီကျော်မှ bot ပြန်တက်ရင် မလုပ်ရသေးတာကို ဖြည့်လုပ်ပါတယ်။

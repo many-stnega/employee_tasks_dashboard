@@ -61,8 +61,13 @@ python3 backend_python/update_tasks.py --date 2026-11-26 carry \
   --id task-001 --from-date 2026-11-25
 ```
 
-The bot automatically carries unfinished tasks forward each day in Myanmar
-time. Use `/end_task` and select a finished task to mark it complete so it will
+The bot automatically carries unfinished tasks forward at 09:00 each day in Myanmar
+time. A restart before 09:00 waits; a restart after 09:00 catches up missing tasks.
+Only newly carried tasks trigger notifications, to the assignee's private chat
+and the enabled group. New assignments retain the employee's Telegram user ID;
+legacy usernames are matched against `TELEGRAM_STANDARD_USER_IDS`. Delivery
+failures are logged without undoing carry; notifications are not automatically
+retried after a restart. Use `/end_task` and select a finished task to mark it complete so it will
 not carry forward. Manual carry is still available; completed tasks cannot be
 carried. A carried task starts the new day's report history empty. When active
 tasks roll into a date containing sample data, the sample entries are replaced
@@ -70,6 +75,14 @@ automatically.
 
 Only users listed in `TELEGRAM_TASK_ASSIGN_USER_IDS` can use `/end_task`,
 and only in chats listed in `TELEGRAM_ALLOWED_CHAT_IDS`.
+
+Set `TELEGRAM_GROUP_CHAT_ID` to a negative group ID and
+`TELEGRAM_GROUP_CHAT_ALLOWED=yes` to enable `/start`, `/task_lists`, and reports
+for members posting in that group, even if not in the user allowlists. The enabled
+group is automatically included in allowed chats. Assignment, completion, and
+manual carry remain manager-only. Group report prompts request a reply to the bot.
+`TELEGRAM_REPORT_RECEIVED_GROUP_CHAT=yes` also sends saved reports to the group,
+in addition to `TELEGRAM_REPORT_RECEIVED_CHAT_IDS`, with duplicate recipients removed.
 
 ## Read the result
 

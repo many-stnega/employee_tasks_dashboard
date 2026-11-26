@@ -166,6 +166,7 @@ def main():
     assign_task.add_argument('--id', type=nonempty, help='Existing/custom ID; omit to allocate YYYYMMDD-NN using the assignment date.')
     assign_task.add_argument('--task', required=True, type=nonempty, help='Task name displayed on the card.')
     assign_task.add_argument('--username', required=True, type=username)
+    assign_task.add_argument('--user-id', type=int, help='Telegram assignee private chat ID.')
     assign_task.add_argument('--description', required=True, type=nonempty)
     report = commands.add_parser('report', help='Record an employee reply for an existing task.')
     report.add_argument('--id', required=True, type=nonempty)
@@ -178,6 +179,7 @@ def main():
         'carry_forward', help='Copy all unfinished tasks from an earlier date.'
     )
     carry_forward.add_argument('--from-date', required=True, type=day)
+    carry_forward.add_argument('--json-result', action='store_true')
     end_task = commands.add_parser('end_task', help='Mark a task completed for this date.')
     end_task.add_argument('--id', required=True, type=nonempty)
     commands.add_parser('list', help='Print this day’s JSON without changing it.')
@@ -208,6 +210,10 @@ def main():
                 task.pop('repo', None)
                 task['task'] = args.task
                 task['assigned_to'] = {'username': args.username}
+                if args.user_id is not None:
+                    if args.user_id <= 0:
+                        raise ValueError('--user-id must be positive.')
+                    task['assigned_to']['user_id'] = args.user_id
                 task['description'] = args.description
                 task['status'] = 'active'
                 task.pop('completed_at', None)
@@ -265,6 +271,8 @@ def main():
                     )
                 else:
                     task_assignee = {'username': assigned_to.lstrip('@')}
+                if isinstance(assigned_to, dict) and assigned_to.get('user_id'):
+                    task_assignee['user_id'] = assigned_to['user_id']
                 task = {
                     'id': original['id'],
                     'created_at': original.get('created_at'),
@@ -285,12 +293,13 @@ def main():
                     if item.get('status') != 'completed' and item['id'] not in completed_ids
                 ]
                 if not unfinished:
-                    print(f'No unfinished tasks to carry from {args.from_date}.')
+                    print('[]' if args.json_result else f'No unfinished tasks to carry from {args.from_date}.')
                     return
                 if data.get('demo'):
                     data = {'date': args.date, 'tasks': []}
                 existing_ids = {item['id'] for item in data['tasks']}
                 carried = 0
+                carried_tasks = []
                 for original in unfinished:
                     if original['id'] in existing_ids:
                         continue
@@ -307,6 +316,8 @@ def main():
                         )
                     else:
                         assignee = {'username': assigned_to.lstrip('@')}
+                    if isinstance(assigned_to, dict) and assigned_to.get('user_id'):
+                        assignee['user_id'] = assigned_to['user_id']
                     data['tasks'].append({
                         'id': original['id'],
                         'created_at': original.get('created_at'),
@@ -317,14 +328,15 @@ def main():
                         'updated_at': now,
                     })
                     existing_ids.add(original['id'])
+                    carried_tasks.append(data['tasks'][-1])
                     carried += 1
                 if not carried:
-                    print(f'No new unfinished tasks to carry from {args.from_date}.')
+                    print('[]' if args.json_result else f'No new unfinished tasks to carry from {args.from_date}.')
                     return
                 data['updated_at'] = now
                 data['demo'] = False
                 target = write(args.data_dir, data)
-                print(f'Carried {carried} unfinished task(s) to {target}.')
+                print(json.dumps(carried_tasks, ensure_ascii=False) if args.json_result else f'Carried {carried} unfinished task(s) to {target}.')
                 return
             task['updated_at'] = now
             data['updated_at'] = now
