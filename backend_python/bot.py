@@ -760,11 +760,9 @@ async def cancel_end_task(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def end_task_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    allowed_user_ids = (
-        context.bot_data["task_assign_user_ids"]
-        | context.bot_data["standard_user_ids"]
-    )
+    allowed_user_ids = context.bot_data["task_assign_user_ids"]
     if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
+        context.user_data.pop(end_task_key(update), None)
         await update.effective_message.reply_text(
             "You are not authorized to end tasks in this chat."
         )
@@ -776,16 +774,9 @@ async def end_task_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.effective_message.reply_text(f"Could not load tasks: {error}")
         return ConversationHandler.END
 
-    user = update.effective_user
-    is_manager = user.id in context.bot_data["task_assign_user_ids"]
-    username = (user.username or "").casefold()
     tasks = [
         task for task in data["tasks"]
         if task.get("status") != "completed"
-        and (
-            is_manager
-            or username and task_username(task).lstrip("@").casefold() == username
-        )
     ]
     if not tasks:
         await update.effective_message.reply_text(
@@ -812,10 +803,7 @@ async def end_task_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def end_task_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
-    allowed_user_ids = (
-        context.bot_data["task_assign_user_ids"]
-        | context.bot_data["standard_user_ids"]
-    )
+    allowed_user_ids = context.bot_data["task_assign_user_ids"]
     if not authorized(update, allowed_user_ids, context.bot_data["allowed_chat_ids"]):
         context.user_data.pop(end_task_key(update), None)
         await query.edit_message_text("You are not authorized to end tasks in this chat.")

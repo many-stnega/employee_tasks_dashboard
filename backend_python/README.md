@@ -54,6 +54,9 @@ carried. A carried task starts the new day's report history empty. When active
 tasks roll into a date containing sample data, the sample entries are replaced
 automatically.
 
+Only users listed in `TELEGRAM_TASK_ASSIGN_USER_IDS` can use `/end_task`,
+and only in chats listed in `TELEGRAM_ALLOWED_CHAT_IDS`.
+
 ## Read the result
 
 ```bash
