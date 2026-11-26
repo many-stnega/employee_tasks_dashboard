@@ -395,6 +395,7 @@ async def report_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         tasks = data.get("tasks") if isinstance(data, dict) else None
         if not isinstance(tasks, list):
             raise ValueError("Invalid daily task list format.")
+        tasks = [task for task in tasks if task.get("status") != "completed"]
         if not tasks:
             await update.effective_message.reply_text("There are no tasks to report today.")
             return ConversationHandler.END
@@ -449,6 +450,9 @@ async def report_select_task(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return ConversationHandler.END
 
     selected_task = tasks[selection]
+    if selected_task.get("status") == "completed":
+        await query.edit_message_text("This task is completed and cannot receive reports.")
+        return ConversationHandler.END
     context.user_data[report_key(update)] = selected_task
     await query.edit_message_text(
         f"📝 {task_name(selected_task)}\n"
@@ -592,10 +596,11 @@ def task_detail_text(task: dict, date: str) -> str:
     )
 
 
-def task_detail_keyboard() -> InlineKeyboardMarkup:
+def task_detail_keyboard(task: dict) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("📝 Add report", callback_data="task_list_report")],
+            *([[InlineKeyboardButton("📝 Add report", callback_data="task_list_report")]]
+              if task.get("status") != "completed" else []),
             [InlineKeyboardButton("← Back to tasks", callback_data="task_list_back")],
         ]
     )
@@ -669,7 +674,7 @@ async def task_list_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     context.user_data[f"{task_list_key(update)}:selected"] = index
     await query.edit_message_text(
         task_detail_text(task, data["date"]),
-        reply_markup=task_detail_keyboard(),
+        reply_markup=task_detail_keyboard(task),
     )
     return TASK_LIST_SELECT
 
@@ -717,6 +722,9 @@ async def task_list_report_start(
         task = data["tasks"][index]
     except IndexError:
         await query.edit_message_text("Task selection expired. Send /task_lists to try again.")
+        return ConversationHandler.END
+    if task.get("status") == "completed":
+        await query.edit_message_text("This task is completed and cannot receive reports.")
         return ConversationHandler.END
     context.user_data[f"{task_list_key(update)}:report_task"] = task
     await query.edit_message_text(
@@ -766,7 +774,7 @@ async def task_list_report_save(
                 if isinstance(selected_index, int) and selected_index < len(data["tasks"]):
                     await update.effective_message.reply_text(
                         task_detail_text(data["tasks"][selected_index], data["date"]),
-                        reply_markup=task_detail_keyboard(),
+                        reply_markup=task_detail_keyboard(data["tasks"][selected_index]),
                     )
         except (OSError, RuntimeError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
             logging.exception("Could not reload task details after report.")

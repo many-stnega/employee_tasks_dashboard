@@ -57,6 +57,9 @@ function card(task) {
   const top = node('div', 'card-top');
   const taskTitle = node('div');
   taskTitle.append(node('span', 'field-label', 'Task'), node('span', 'repo', task.task || task.repo?.name || 'Untitled task'));
+  const created = node('time', 'task-created', reportDateTime(task.created_at) ? `Created ${reportDateTime(task.created_at)} · MMT` : 'Created time unavailable');
+  if (reportDateTime(task.created_at)) created.dateTime = task.created_at;
+  taskTitle.append(created);
   if (task.status === 'completed') {
     taskTitle.append(node('span', 'task-status', '✅ Completed'));
   }

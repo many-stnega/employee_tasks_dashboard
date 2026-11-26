@@ -61,6 +61,8 @@ def load(folder, key):
         if not isinstance(task, dict) or not isinstance(task.get('id'), str) or not task['id'] or task['id'] in ids:
             raise ValueError(f'Invalid or duplicate task ID in {path}')
         ids.add(task['id'])
+        if task.get('created_at') is not None:
+            timestamp(task['created_at'])
         if task.get('status') not in (None, 'active', 'completed'):
             raise ValueError(f'Invalid task status for {task["id"]}')
         if task.get('status') == 'completed':
@@ -143,6 +145,18 @@ def next_task_id(folder, assignment_date):
     return f'{prefix}-{largest + 1:02d}'
 
 
+def completed_task_ids(folder):
+    """A completion in any daily record locks the task across its history."""
+    return {
+        task['id']
+        for path in folder.glob('*.json')
+        for data in [load(folder, path.stem)]
+        if not data.get('demo')
+        for task in data['tasks']
+        if task.get('status') == 'completed'
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--data-dir', type=Path, default=DEFAULT_DATA)
@@ -179,6 +193,9 @@ def main():
             now = datetime.now(MMT).isoformat(timespec='seconds')
             if args.command == 'assign_task' and args.id is None:
                 args.id = next_task_id(args.data_dir, args.date)
+            completed_ids = completed_task_ids(args.data_dir)
+            if getattr(args, 'id', None) in completed_ids:
+                raise ValueError(f'Task {args.id} is completed and cannot be modified.')
             task = (
                 next((item for item in data['tasks'] if item['id'] == args.id), None)
                 if hasattr(args, 'id')
@@ -186,7 +203,7 @@ def main():
             )
             if args.command == 'assign_task':
                 if task is None:
-                    task = {'id': args.id}
+                    task = {'id': args.id, 'created_at': now}
                     data['tasks'].append(task)
                 task.pop('repo', None)
                 task['task'] = args.task
@@ -250,6 +267,7 @@ def main():
                     task_assignee = {'username': assigned_to.lstrip('@')}
                 task = {
                     'id': original['id'],
+                    'created_at': original.get('created_at'),
                     'task': task_name,
                     'assigned_to': task_assignee,
                     'description': original['description'],
@@ -264,7 +282,7 @@ def main():
                     raise ValueError('Cannot carry tasks from a sample file.')
                 unfinished = [
                     item for item in source['tasks']
-                    if item.get('status') != 'completed'
+                    if item.get('status') != 'completed' and item['id'] not in completed_ids
                 ]
                 if not unfinished:
                     print(f'No unfinished tasks to carry from {args.from_date}.')
@@ -291,6 +309,7 @@ def main():
                         assignee = {'username': assigned_to.lstrip('@')}
                     data['tasks'].append({
                         'id': original['id'],
+                        'created_at': original.get('created_at'),
                         'task': original_name,
                         'assigned_to': assignee,
                         'description': original['description'],

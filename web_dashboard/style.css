@@ -15,4 +15,5 @@
 
 .topbar-actions{display:flex;align-items:center;gap:10px}
 .topbar-actions form{margin:0}
+.task-created{display:block;margin-top:6px;color:var(--secondary);font-size:14px;overflow-wrap:anywhere}
 @media(max-width:480px){.topbar-actions{gap:6px}.topbar-actions .button{padding:7px 9px}}

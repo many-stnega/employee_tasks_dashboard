@@ -48,6 +48,14 @@ at `01`; allocation runs under the data directory lock. Carrying a task preserve
 its original ID across all later dates. Existing IDs remain unchanged.
 The Telegram bot uses this automatic allocation.
 
+New tasks store `created_at` at their first assignment. Edits and both carry
+commands preserve it; the dashboard displays the full date and time in Myanmar
+time. Legacy tasks without this field show “Created time unavailable” because
+their original assignment time cannot be recovered reliably from `updated_at`.
+Completed task IDs are locked across all daily records: reports, reassignment,
+and manual carry are rejected, and automatic carry skips them, even when its
+source is an older active copy.
+
 ```bash
 python3 backend_python/update_tasks.py --date 2026-11-26 carry \
   --id task-001 --from-date 2026-11-25
