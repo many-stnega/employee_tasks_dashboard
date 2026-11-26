@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-26",
+  "tasks": [
+    {
+      "id": "20261126-01",
+      "created_at": "2026-11-26T11:13:08+06:30",
+      "task": "Business_Angel ရှာဖွေရေး",
+      "assigned_to": {
+        "username": "Di_Qing_Bai",
+        "user_id": 1605652713
+      },
+      "description": "Github Organization မှာ repo ဆောက်ပြီး နေ့စဥ် ညနေ ၄ နာရီတွင် ပြီးမြောက်ထားသော progress အား ရှင်းလင်းစွာရေးသားပေးပါရန်။ \nGithub Repo ကို ထည့်ပေးပါ။",
+      "status": "active",
+      "updated_at": "2026-11-26T11:13:08+06:30"
+    },
+    {
+      "id": "20261126-02",
+      "created_at": "2026-11-26T11:19:08+06:30",
+      "task": "OpenXR_Gazebo_Integration",
+      "assigned_to": {
+        "username": "DoloresAx",
+        "user_id": 6465664961
+      },
+      "description": "https://github.com/ROM-robotics/openxr_gazebo_plugin\nဒီ repo မှာ ဘာတွေ လုပ်ထားသလဲ \nတစ်ရက်စာ လုပ်ထားတဲ့အပိုင်းတွေကို ရှင်းလင်းစွာ ရေးသား report လုပ်ပေးပါ။",
+      "status": "active",
+      "updated_at": "2026-11-26T11:19:08+06:30"
+    },
+    {
+      "id": "20261126-03",
+      "created_at": "2026-11-26T11:21:49+06:30",
+      "task": "AI Note စာရွက်ဘာသာပြန်",
+      "assigned_to": {
+        "username": "ZymE3",
+        "user_id": 1652694056
+      },
+      "description": "ကိုမင်းခေါင်ရဲ့ စာရွက်နှင့် ဟိန်းထက်ရဲ့ စာရွက်များအား ဘာသာာပြန်ပြီး print ထုတ်ပေးပါ။",
+      "status": "active",
+      "updated_at": "2026-11-26T11:21:49+06:30"
+    }
+  ],
+  "updated_at": "2026-11-26T11:21:49+06:30",
+  "demo": false
+}
+
