@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from telegram.ext import ConversationHandler
+from telegram.error import TelegramError
 
 from backend_python import bot
 
@@ -61,3 +62,54 @@ class EndTaskAuthorizationTests(unittest.IsolatedAsyncioTestCase):
             save.assert_awaited_once()
             self.assertEqual(save.call_args.args[1][-3:], ["end_task", "--id", "task-1"])
         self.assertNotIn(bot.end_task_key(update), context.user_data)
+
+
+class ReportNotificationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_both_report_paths_notify_only_after_successful_save(self):
+        for handler in (bot.report_save, bot.task_list_report_save):
+            for saved in (False, "1"):
+                with self.subTest(handler=handler.__name__, saved=saved):
+                    update, context = EndTaskAuthorizationTests().make_request(user_id=2)
+                    update.effective_message.text = "Finished testing"
+                    task = {"id": "1", "task": "Testing", "assigned_to": {"username": "employee"}}
+                    context.user_data[bot.report_key(update)] = task
+                    context.user_data[f"{bot.task_list_key(update)}:report_task"] = task
+                    context.bot_data["report_received_chat_ids"] = {11, -200}
+                    context.bot = SimpleNamespace(send_message=AsyncMock())
+                    with patch.object(bot, "run_task_update", new_callable=AsyncMock, return_value=saved), patch.object(
+                        bot, "load_today_task_data", new_callable=AsyncMock, return_value={"tasks": [task]}
+                    ):
+                        await handler(update, context)
+                    calls = context.bot.send_message.await_args_list
+                    self.assertEqual({call.kwargs['chat_id'] for call in calls}, {11, -200} if saved else set())
+                    for call in calls:
+                        self.assertIn("Task ID: 1", call.kwargs['text'])
+                        self.assertIn("Reported by: @employee", call.kwargs['text'])
+                        self.assertIn("Finished testing", call.kwargs['text'])
+
+    async def test_delivery_failure_does_not_stop_other_recipients(self):
+        update, context = EndTaskAuthorizationTests().make_request()
+        context.bot_data["report_received_chat_ids"] = {-200, 11}
+        async def send_message(chat_id, text):
+            if chat_id == -200:
+                raise TelegramError("blocked")
+        context.bot = SimpleNamespace(send_message=AsyncMock(side_effect=send_message))
+        with self.assertLogs(level="ERROR"):
+            await bot.notify_report_received(update, context, {"id": "1", "task": "Testing"}, "x" * 5000)
+        calls = context.bot.send_message.await_args_list
+        self.assertEqual([call.kwargs['chat_id'] for call in calls], [-200, 11, 11, 11])
+        self.assertTrue(all(len(call.kwargs['text']) <= 4000 for call in calls))
+        self.assertIn("Report saved", update.effective_message.reply_text.call_args.args[0])
+
+    async def test_empty_recipients_send_nothing(self):
+        update, context = EndTaskAuthorizationTests().make_request()
+        context.bot = SimpleNamespace(send_message=AsyncMock())
+        await bot.notify_report_received(update, context, {"id": "1"}, "Done")
+        context.bot.send_message.assert_not_awaited()
+
+    async def test_generated_assignment_id_is_used_in_confirmation(self):
+        update, _ = EndTaskAuthorizationTests().make_request()
+        result = SimpleNamespace(returncode=0, stdout="Saved 20261126-01: /data/2026-11-26.json\n")
+        with patch.object(bot.subprocess, "run", return_value=result):
+            self.assertEqual(await bot.run_task_update(update, ["assign_task"], None, "assign"), "20261126-01")
+        update.effective_message.reply_text.assert_awaited_once_with("Task assigned: 20261126-01.")

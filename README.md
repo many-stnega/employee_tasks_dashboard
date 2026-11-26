@@ -146,6 +146,7 @@ TELEGRAM_BOT_TOKEN=YOUR_BOT_TOKEN
 TELEGRAM_TASK_ASSIGN_USER_IDS=
 TELEGRAM_STANDARD_USER_IDS=
 TELEGRAM_ALLOWED_CHAT_IDS=
+TELEGRAM_REPORT_RECEIVED_CHAT_IDS=
 ```
 
 Hash ထဲက `$` တွေကို script က single quote နဲ့ရေးပေးတာကြောင့် ကိုယ်တိုင်
@@ -199,6 +200,7 @@ Bot run နေချိန်မှာ admin နဲ့ ဝန်ထမ်းတ�
 | `TELEGRAM_TASK_ASSIGN_USER_IDS` | Task assign လုပ်ခွင့်နှင့် `/end_task` လုပ်ခွင့်ရှိတဲ့ admin user IDs |
 | `TELEGRAM_STANDARD_USER_IDS` | ဝန်ထမ်း user IDs; assignment ရွေးချယ်စာရင်းက ဒီ list ကို သုံးပါတယ် |
 | `TELEGRAM_ALLOWED_CHAT_IDS` | Commands သုံးမယ့် private/group chat IDs |
+| `TELEGRAM_REPORT_RECEIVED_CHAT_IDS` | Report တင်ပြီးတိုင်း notification လက်ခံမယ့် private/group chat IDs (comma ခြားရေးပါ) |
 
 IDs အများအပြားကို comma ခြားပါ။ Group chat ID က negative ဖြစ်နိုင်ပါတယ်။ User ID နဲ့ လက်ရှိ chat ID **နှစ်ခုလုံး** allowlist ထဲရှိမှ command သုံးနိုင်ပါတယ်။
 
@@ -231,6 +233,9 @@ Menu ထည့်ခြင်းက permission ပေးခြင်း မဟ�
 3. Employee က `/task_lists` သို့မဟုတ် `/report` နဲ့ task ရွေးပြီး report ပို့ပါ။ Report တစ်ခုချင်းစီမှာ မြန်မာအချိန် date/time သိမ်းပါတယ်။
 4. Dashboard မှာ သက်ဆိုင်ရာရက်ကိုရွေးပြီး task/report ကို စစ်ပါ။
 5. `TELEGRAM_TASK_ASSIGN_USER_IDS` ထဲက admin တွေကသာ `/end_task` နဲ့ task တွေကို အဆုံးသတ်နိုင်ပါတယ်။
+
+Task အသစ်များရဲ့ ID ကို မြန်မာအချိန် assignment ရက်စွဲနဲ့ `YYYYMMDD-01`, `YYYYMMDD-02`, … အစဉ်လိုက်ပေးပါတယ်။ ရက်အသစ်မှာ task အသစ်တွေကို `01` ကနေ ပြန်စပါတယ်။ Carry လုပ်တဲ့ task က မူလ ID အတိုင်း ဆက်ရှိပါတယ် (ဥပမာ `20260213-01`)။ ရှိပြီးသား task ID များကို မပြောင်းပါ။
+`/report` သို့မဟုတ် `/task_lists` ကနေ report သိမ်းပြီးတိုင်း `TELEGRAM_REPORT_RECEIVED_CHAT_IDS` ထဲက chat များဆီ task ID၊ task name၊ report တင်သူနဲ့ report စာသားကို ပို့ပါတယ်။ Private message လက်ခံမယ့်သူက bot ကို `/start` ပို့ထားရပါမယ်။ Variable အလွတ်ထားရင် notification မပို့ပါ။
 6. `/cancel` က လက်ရှိအပြန်အလှန်ဖြည့်နေတဲ့ workflow ကို ရပ်ပေးပါတယ်။
 
 မပြီးသေးတဲ့ task တွေကို bot startup နဲ့ မြန်မာအချိန် နေ့ကူးချိန်တွေမှာ carry စစ်ပါတယ်။ နေ့သစ်ထဲက carried task ရဲ့ report history က အသစ်စပါတယ်။ Manual carry လိုရင် admin က:

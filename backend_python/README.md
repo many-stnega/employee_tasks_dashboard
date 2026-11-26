@@ -42,6 +42,12 @@ Myanmar time.
 
 ## Carry an unfinished task to another day
 
+New assignments without `--id` receive IDs such as `20260213-01`, `20260213-02`,
+using the assignment date (Myanmar time by default, or `--date`). Each date starts
+at `01`; allocation runs under the data directory lock. Carrying a task preserves
+its original ID across all later dates. Existing IDs remain unchanged.
+The Telegram bot uses this automatic allocation.
+
 ```bash
 python3 backend_python/update_tasks.py --date 2026-11-26 carry \
   --id task-001 --from-date 2026-11-25

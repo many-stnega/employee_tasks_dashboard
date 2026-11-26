@@ -128,13 +128,28 @@ def write(folder, data):
     return target
 
 
+def next_task_id(folder, assignment_date):
+    """Allocate a date-prefixed ID under the directory lock."""
+    prefix = assignment_date.replace('-', '')
+    largest = 0
+    for path in folder.glob('*.json'):
+        data = load(folder, path.stem)
+        if data.get('demo'):
+            continue
+        for task in data['tasks']:
+            match = re.fullmatch(rf'{prefix}-([0-9]+)', task['id'])
+            if match:
+                largest = max(largest, int(match.group(1)))
+    return f'{prefix}-{largest + 1:02d}'
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--data-dir', type=Path, default=DEFAULT_DATA)
     parser.add_argument('--date', type=day, default=datetime.now(MMT).date().isoformat())
     commands = parser.add_subparsers(dest='command', required=True)
     assign_task = commands.add_parser('assign_task', help='Create or update an assignment, preserving its employee report.')
-    assign_task.add_argument('--id', required=True, type=nonempty)
+    assign_task.add_argument('--id', type=nonempty, help='Existing/custom ID; omit to allocate YYYYMMDD-NN using the assignment date.')
     assign_task.add_argument('--task', required=True, type=nonempty, help='Task name displayed on the card.')
     assign_task.add_argument('--username', required=True, type=username)
     assign_task.add_argument('--description', required=True, type=nonempty)
@@ -162,6 +177,8 @@ def main():
             if data.get('demo') and args.command != 'carry_forward':
                 raise ValueError('Sample file: choose a date without sample data before updating it.')
             now = datetime.now(MMT).isoformat(timespec='seconds')
+            if args.command == 'assign_task' and args.id is None:
+                args.id = next_task_id(args.data_dir, args.date)
             task = (
                 next((item for item in data['tasks'] if item['id'] == args.id), None)
                 if hasattr(args, 'id')

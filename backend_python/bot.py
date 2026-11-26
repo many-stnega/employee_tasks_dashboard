@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-import uuid
 from datetime import date, datetime, timedelta, timezone
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -132,9 +131,9 @@ def parse_carry(text: str) -> dict[str, str]:
 async def run_task_update(
     update: Update,
     command: list[str],
-    task_id: str,
+    task_id: str | None,
     action: str,
-) -> bool:
+) -> str | bool:
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=False)
     except OSError as error:
@@ -149,6 +148,8 @@ async def run_task_update(
     if action == "carry" and "already exists" in result.stdout.lower():
         await update.effective_message.reply_text(result.stdout.strip())
         return False
+    if task_id is None:
+        task_id = result.stdout.strip().split(':', 1)[0].removeprefix('Saved ')
     past_tense = {
         "assign": "assigned",
         "report": "reported",
@@ -156,7 +157,7 @@ async def run_task_update(
         "end": "completed",
     }
     await update.effective_message.reply_text(f"Task {past_tense[action]}: {task_id}.")
-    return True
+    return task_id
 
 
 def telegram_message_chunks(text: str, limit: int = 4000) -> list[str]:
@@ -184,7 +185,7 @@ async def task_assign_start(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return ConversationHandler.END
 
     state_key = task_assignment_key(update)
-    context.user_data[state_key] = {"id": f"task-{today_key()}-{uuid.uuid4().hex[:8]}"}
+    context.user_data[state_key] = {}
     context.user_data[f"{state_key}:step"] = TASK_NAME
     await update.effective_message.reply_text(TASK_ASSIGNMENT_PROMPTS[TASK_NAME])
     return TASK_NAME
@@ -307,8 +308,6 @@ async def task_assign_answer(update: Update, context: ContextTypes.DEFAULT_TYPE)
         sys.executable,
         str(Path(__file__).with_name("update_tasks.py")),
         "assign_task",
-        "--id",
-        fields["id"],
         "--task",
         fields["task"],
         "--username",
@@ -320,12 +319,14 @@ async def task_assign_answer(update: Update, context: ContextTypes.DEFAULT_TYPE)
     state_key = task_assignment_key(update)
     context.user_data.pop(state_key, None)
     context.user_data.pop(f"{state_key}:step", None)
-    saved = await run_task_update(update, command, fields["id"], "assign")
+    saved = await run_task_update(update, command, None, "assign")
     if saved:
+        fields["id"] = saved
         recipient_id = fields["employee_id"]
         assignment_message = "\n".join(
             [
                 "📌 New task assigned",
+                f"Task ID: {fields['id']}",
                 "",
                 f"📝 {fields['task']}",
                 "",
@@ -488,8 +489,36 @@ async def report_save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         description,
     ]
     context.user_data.pop(report_key(update), None)
-    await run_task_update(update, command, task["id"], "report")
+    if await run_task_update(update, command, task["id"], "report"):
+        await notify_report_received(update, context, task, description)
     return ConversationHandler.END
+
+
+async def notify_report_received(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, task: dict, description: str
+) -> None:
+    user = update.effective_user
+    reporter = f"@{user.username}" if user.username else str(user.id)
+    message = "\n".join([
+        "📝 Task report received",
+        f"Task ID: {task['id']}",
+        f"Task: {task_name(task)}",
+        f"Assigned to: @{task_username(task).lstrip('@')}",
+        f"Reported by: {reporter}",
+        "", description,
+    ])
+    failed = 0
+    for chat_id in sorted(context.bot_data.get("report_received_chat_ids", set())):
+        try:
+            for chunk in telegram_message_chunks(message):
+                await context.bot.send_message(chat_id=chat_id, text=chunk)
+        except TelegramError:
+            failed += 1
+            logging.exception("Report for task %s could not be sent to chat %s.", task['id'], chat_id)
+    if failed:
+        await update.effective_message.reply_text(
+            f"Report saved, but notification delivery failed for {failed} chat(s)."
+        )
 
 
 async def cancel_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -727,6 +756,7 @@ async def task_list_report_save(
     ]
     saved = await run_task_update(update, command, task["id"], "report")
     if saved:
+        await notify_report_received(update, context, task, description)
         try:
             data = await load_today_task_data()
             task_list = context.user_data.get(task_list_key(update))
@@ -947,6 +977,7 @@ def main() -> None:
             "TELEGRAM_STANDARD_USER_IDS", positive_only=True
         )
         chat_ids = allowed_ids("TELEGRAM_ALLOWED_CHAT_IDS")
+        report_received_chat_ids = allowed_ids("TELEGRAM_REPORT_RECEIVED_CHAT_IDS")
     except ValueError as error:
         raise SystemExit(f"Telegram bot configuration error: {error}") from error
 
@@ -965,6 +996,7 @@ def main() -> None:
     application.bot_data["task_assign_user_ids"] = task_assign_user_ids
     application.bot_data["standard_user_ids"] = standard_user_ids
     application.bot_data["allowed_chat_ids"] = chat_ids
+    application.bot_data["report_received_chat_ids"] = report_received_chat_ids
     task_assign_conversation = ConversationHandler(
         entry_points=[CommandHandler("task_assign", task_assign_start)],
         states={
