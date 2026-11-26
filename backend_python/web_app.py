@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Authenticated web dashboard application."""
 import hmac
+import json
 import os
 import secrets
 import warnings
+from datetime import date
 from pathlib import Path
 
 from flask import (
     Flask,
     abort,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -49,9 +52,13 @@ def create_app() -> Flask:
             raise RuntimeError("WEB_DASHBOARD_PASSWORD_HASH is not a valid SHA-512-crypt hash.")
     else:
         check_password_hash(password_hash, "")
+    mobile_token = os.environ.get("MOBILE_API_TOKEN", "").strip()
+    if mobile_token and len(mobile_token) < 32:
+        raise RuntimeError("MOBILE_API_TOKEN must contain at least 32 characters.")
 
     app = Flask(__name__, template_folder=str(WEB_ROOT))
     app.config.update(
+        MOBILE_API_TOKEN=mobile_token,
         SECRET_KEY=secret_key,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SECURE=True,
@@ -128,8 +135,60 @@ def create_app() -> Flask:
         session.clear()
         return redirect(url_for("login"))
 
+    def mobile_authorized() -> bool:
+        token = app.config.get("MOBILE_API_TOKEN", "")
+        supplied = request.headers.get("X-Mobile-Token", "")
+        return bool(token) and bool(supplied) and hmac.compare_digest(token, supplied)
+
+    def valid_day_key(key: str) -> bool:
+        try:
+            parsed = date.fromisoformat(key)
+        except ValueError:
+            return False
+        return parsed.isoformat() == key and 2000 <= parsed.year <= 2100
+
+    def daily_file(key: str):
+        path = Path(app.config["TASKS_DATA_DIR"]) / f"{key}.json"
+        if not path.is_file():
+            return None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        if (
+            not isinstance(data, dict)
+            or data.get("date") != key
+            or not isinstance(data.get("tasks"), list)
+        ):
+            return None
+        return data
+
+    @app.get("/api/mobile/dates")
+    def mobile_dates():
+        if not mobile_authorized():
+            abort(401)
+        folder = Path(app.config["TASKS_DATA_DIR"])
+        dates = sorted(
+            path.stem for path in folder.glob("*.json")
+            if valid_day_key(path.stem) and daily_file(path.stem) is not None
+        )
+        return jsonify({"dates": dates})
+
+    @app.get("/api/mobile/data/<date_key>")
+    def mobile_day(date_key: str):
+        if not mobile_authorized():
+            abort(401)
+        if not valid_day_key(date_key):
+            abort(400)
+        data = daily_file(date_key)
+        if data is None:
+            abort(404)
+        return jsonify(data)
+
     @app.get("/<path:asset>")
     def dashboard_asset(asset: str):
+        if asset.startswith("api/"):
+            abort(404)
         if asset == "login.css":
             return send_from_directory(WEB_ROOT, asset)
         if not authenticated():
