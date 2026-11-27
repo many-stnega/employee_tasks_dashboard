@@ -2,10 +2,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl.dart';
 
 import '../format.dart';
-import '../models.dart';
 import '../store.dart';
 import '../sync_service.dart';
-import '../widgets/report_sheet.dart';
 import '../widgets/task_card.dart';
 
 class LogPage extends StatefulWidget {
@@ -18,6 +16,7 @@ class LogPage extends StatefulWidget {
 }
 
 class _LogPageState extends State<LogPage> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late DateTime _month;
   bool _syncing = false;
 
@@ -34,7 +33,9 @@ class _LogPageState extends State<LogPage> {
     setState(() => _syncing = true);
     final message = await syncLatest(widget.store);
     if (!mounted) return;
-    await widget.store.setNotice(message);
+    if (message.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
     setState(() => _syncing = false);
   }
 
@@ -51,17 +52,11 @@ class _LogPageState extends State<LogPage> {
       await widget.store.setSelectedDate(chosen);
       if (!widget.store.isCached(chosen)) {
         final message = await syncDay(widget.store, chosen);
-        if (mounted) await widget.store.setNotice(message);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        }
       }
     }
-  }
-
-  Future<void> _openReport(TaskItem task) async {
-    await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => ReportSheet(task: task, store: widget.store),
-    );
   }
 
   @override
@@ -79,7 +74,87 @@ class _LogPageState extends State<LogPage> {
             return bTime.compareTo(aTime);
           });
         return Scaffold(
+          key: _scaffoldKey,
+          drawer: Drawer(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                DrawerHeader(
+                  decoration: BoxDecoration(color: scheme.primary),
+                  child: Align(
+                    alignment: Alignment.bottomLeft,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text('Engineer Tasks',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w600)),
+                        SizedBox(height: 4),
+                        Text('OFFICE MANAGER',
+                            style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                                letterSpacing: 2)),
+                      ],
+                    ),
+                  ),
+                ),
+                ListTile(
+                  leading: Icon(Icons.dashboard_outlined),
+                  title: Text('Dashboard'),
+                  selected: true,
+                  onTap: () => Navigator.of(context).pop(),
+                ),
+                ListTile(
+                  leading: Icon(Icons.schedule),
+                  title: Text('Cron Jobs'),
+                  onTap: () {
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    navigator.pushNamed('/reminders');
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.contacts_outlined),
+                  title: Text('Contacts'),
+                  onTap: () {
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    navigator.pushNamed('/contacts');
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.message_outlined),
+                  title: Text('Messages'),
+                  onTap: () {
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    navigator.pushNamed('/messages');
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.settings_outlined),
+                  title: Text('Settings'),
+                  onTap: () {
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    navigator.pushNamed('/settings');
+                  },
+                ),
+              ],
+            ),
+          ),
           appBar: AppBar(
+            leadingWidth: 40,
+            titleSpacing: 0,
+            leading: IconButton(
+              tooltip: 'Menu',
+              icon: const Icon(Icons.menu),
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
             title: Row(
               children: [
                 Container(
@@ -94,37 +169,35 @@ class _LogPageState extends State<LogPage> {
                         style: TextStyle(color: Colors.white, fontSize: 20)),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Employee Tasks',
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Engineer Tasks',
+                          style: TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.w600)),
+                      Text(
+                        '${isToday ? 'Today’s log' : 'Daily log'} · ${prettyDate(widget.store.selectedDate)}',
                         style: TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.w600)),
-                    Text('OFFICE MANAGER',
-                        style: TextStyle(
-                            fontSize: 10,
-                            letterSpacing: 2,
-                            color: scheme.onSurfaceVariant)),
-                  ],
+                            fontSize: 11, color: scheme.onSurfaceVariant),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
             actions: [
               IconButton(
+                tooltip: 'Choose date',
+                icon: const Icon(Icons.calendar_month_outlined),
+                onPressed: _chooseDate,
+              ),
+              IconButton(
                 tooltip: 'Sync from server',
                 icon: const Icon(Icons.sync),
                 onPressed: _syncing ? null : _refresh,
-              ),
-              IconButton(
-                tooltip: widget.store.dark ? 'Light mode' : 'Dark mode',
-                icon: Icon(widget.store.dark ? Icons.light_mode : Icons.dark_mode),
-                onPressed: () => widget.store.setDark(!widget.store.dark),
-              ),
-              IconButton(
-                tooltip: 'Settings',
-                icon: const Icon(Icons.settings_outlined),
-                onPressed: () => Navigator.of(context).pushNamed('/settings'),
               ),
             ],
           ),
@@ -132,56 +205,6 @@ class _LogPageState extends State<LogPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('DAILY ACTIVITY',
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    letterSpacing: 1.7,
-                                    fontWeight: FontWeight.w700,
-                                    color: scheme.onSurfaceVariant)),
-                            const SizedBox(height: 4),
-                            Text(
-                              isToday ? 'Today’s log' : 'Daily log',
-                              style: Theme.of(context).textTheme.headlineSmall,
-                            ),
-                            Text(prettyDate(widget.store.selectedDate),
-                                style: TextStyle(
-                                    color: scheme.onSurfaceVariant, fontSize: 13)),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: scheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text('Read only',
-                            style: TextStyle(
-                                fontSize: 12, color: scheme.primary)),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: OutlinedButton.icon(
-                    onPressed: _chooseDate,
-                    icon: const Icon(Icons.calendar_month_outlined),
-                    label: Text(isToday
-                        ? 'Today’s log'
-                        : 'Jump to ${prettyDate(widget.store.selectedDate)}'),
-                  ),
-                ),
                 if (log.demo)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
@@ -192,36 +215,35 @@ class _LogPageState extends State<LogPage> {
                     ),
                   ),
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
                   child: Row(
                     children: [
                       Text(
                         '${tasks.length} task log${tasks.length == 1 ? '' : 's'}',
                         style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: scheme.onSurfaceVariant),
+                            fontSize: 12, color: scheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: scheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text('Read only',
+                            style: TextStyle(
+                                fontSize: 11, color: scheme.primary)),
                       ),
                       const Spacer(),
                       if (log.updatedAt != null)
-                        Text('Last update ${timeHm(log.updatedAt)} · MMT',
+                        Text('Updated ${timeHm(log.updatedAt)} · MMT',
                             style: TextStyle(
                                 fontSize: 12,
                                 color: scheme.onSurfaceVariant)),
                     ],
                   ),
                 ),
-                if (widget.store.notice.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: ListTile(
-                      dense: true,
-                      leading: Icon(Icons.notifications_active_outlined,
-                          color: scheme.primary),
-                      title: Text(widget.store.notice,
-                          style: TextStyle(fontSize: 13, color: scheme.primary)),
-                    ),
-                  ),
                 Expanded(
                   child: tasks.isEmpty
                       ? Center(
@@ -261,7 +283,6 @@ class _LogPageState extends State<LogPage> {
                             itemCount: tasks.length,
                             itemBuilder: (context, index) => TaskCard(
                               task: tasks[index],
-                              onReport: () => _openReport(tasks[index]),
                             ),
                           ),
                         ),

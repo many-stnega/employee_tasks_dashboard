@@ -123,3 +123,10 @@ class ReportNotificationTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(bot.subprocess, "run", return_value=result):
             self.assertEqual(await bot.run_task_update(update, ["assign_task"], None, "assign"), "20261126-01")
         update.effective_message.reply_text.assert_awaited_once_with("Task assigned: 20261126-01.")
+
+
+class EngineerLabelTests(unittest.TestCase):
+    def test_known_alias_and_removed_username(self):
+        self.assertEqual(bot.engineer_label("MKAddison"), "@MKAddison - Yu Yu Aung")
+        self.assertEqual(bot.engineer_label("ZymE3"), "@ZymE3 - Htet Wai Yan")
+        self.assertEqual(bot.engineer_label("karmine"), "@karmine")

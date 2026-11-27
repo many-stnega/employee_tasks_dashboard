@@ -1,5 +1,5 @@
 name: employee_tasks_mobile
-description: "Android client for the Employee Tasks dashboard: server JSON cache plus direct Telegram report sending."
+description: "Android client for the Employee Tasks dashboard: read-only server JSON cache."
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -12,6 +12,13 @@ dependencies:
   cupertino_icons: ^1.0.8
   material_ui: ^1.11.1
   http: 1.6.0
+  url_launcher: 6.3.2
+  flutter_local_notifications: 23.0.4
+  timezone: 0.11.2
+  flutter_contacts: 2.6.0
+  sms_sender: 1.0.7
+  permission_handler: 13.0.2
+  workmanager: 0.10.10
   shared_preferences: 2.5.6
   intl: 0.20.3
 

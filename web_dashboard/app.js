@@ -11,12 +11,59 @@ const ENGINEER_NAMES = new Map([
   ['zyme3', 'Htet Wai Yan'],
   ['hmue_gyi', 'Hmue Sat San'],
   ['kyawswarhtunlinnaung', 'Kyaw Swar Htun'],
-  ['karmine', 'Yu Yu Aung'],
+  ['mkaddison', 'Yu Yu Aung'],
 ]);
 function telegramLabel(username, fallbackName = '') {
   const handle = username.replace(/^@/, '');
   const name = ENGINEER_NAMES.get(handle.toLowerCase()) || fallbackName;
   return handle ? `@${handle}${name ? ` - ${name}` : ''}` : name;
+}
+function telegramDisplayName(username, fallbackName = '') {
+  const handle = (username || '').replace(/^@/, '');
+  return ENGINEER_NAMES.get(handle.toLowerCase()) || fallbackName || '';
+}
+function engineerReveal(username, fallbackName = '', className = 'person') {
+  const handle = (username || '').replace(/^@/, '');
+  const name = telegramDisplayName(username, fallbackName) || 'Engineer';
+  const wrap = node('span', 'engineer-reveal-wrap');
+  const button = node('button', `${className} engineer-reveal`, name);
+  button.type = 'button';
+  button.title = 'Tap or hold to show @username and open Telegram';
+  button.setAttribute('aria-label', button.title);
+  wrap.append(button);
+  if (!handle) return wrap;
+
+  let revealed = false;
+  let suppressClick = false;
+  let holdTimer = null;
+  const show = () => {
+    if (!revealed) {
+      const link = node('a', 'engineer-handle', `@${handle}`);
+      link.href = `https://t.me/${handle}`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      wrap.append(link);
+      revealed = true;
+    }
+    window.open(`https://t.me/${handle}`, '_blank', 'noopener,noreferrer');
+  };
+  button.addEventListener('click', () => {
+    if (suppressClick) { suppressClick = false; return; }
+    show();
+  });
+  const startHold = (event) => {
+    if (event.cancelable) event.preventDefault();
+    holdTimer = setTimeout(() => { holdTimer = null; suppressClick = true; show(); }, 500);
+  };
+  const endHold = () => {
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+  };
+  button.addEventListener('touchstart', startHold, { passive: false });
+  button.addEventListener('touchend', endHold);
+  button.addEventListener('mousedown', startHold);
+  button.addEventListener('mouseup', endHold);
+  button.addEventListener('mouseleave', endHold);
+  return wrap;
 }
 function telegramProfile(username) {
   const handle = username.replace(/^@/, '');
@@ -73,19 +120,25 @@ function card(task) {
   const article = node('article', 'task-card');
   const top = node('div', 'card-top');
   const taskTitle = node('div');
-  taskTitle.append(node('span', 'field-label', 'Task'), node('span', 'repo', task.task || task.repo?.name || 'Untitled task'));
-  const created = node('time', 'task-created', reportDateTime(task.created_at) ? `Created ${reportDateTime(task.created_at)} · MMT` : 'Created time unavailable');
-  if (reportDateTime(task.created_at)) created.dateTime = task.created_at;
-  taskTitle.append(created);
+  taskTitle.append(node('span', 'field-label', `Task - ${task.id || '—'}`), node('span', 'repo', task.task || task.repo?.name || 'Untitled task'));
   if (task.status === 'completed') {
     taskTitle.append(node('span', 'task-status', '✅ Completed'));
   }
   const employee = node('div', 'employee');
   const assignee = task.assigned_to;
   const username = (typeof assignee === 'string' ? assignee : assignee.username || assignee.name || '').replace(/^@/, '');
-  const profile = telegramProfile(username);
-  employee.append(node('span', 'field-label', 'Engineer'), linkOrText(telegramLabel(username), profile, 'person'));
+  employee.append(node('span', 'field-label', 'Engineer'), engineerReveal(username, '', 'person'));
   top.append(taskTitle, employee);
+
+  const dateRow = node('div', 'card-date-row');
+  const created = node('time', 'task-created', reportDateTime(task.created_at) ? `Created ${reportDateTime(task.created_at)} · MMT` : 'Created time unavailable');
+  if (reportDateTime(task.created_at)) created.dateTime = task.created_at;
+  const expand = node('button', 'card-expand', '▾');
+  expand.type = 'button';
+  expand.title = 'Expand details';
+  expand.setAttribute('aria-label', 'Expand details');
+  dateRow.append(created, expand);
+
   const body = node('div', 'description-columns');
   const assignment = node('section', 'description assignment');
   assignment.append(node('span', 'field-label', 'Description'), node('p', '', task.description));
@@ -99,11 +152,11 @@ function card(task) {
       const reporter = entry.reported_by;
       const reporterName = reporter?.name || '';
       const reporterUsername = reporter?.username || '';
-      const reporterLabel = telegramLabel(reporterUsername, reporterName) ||
+      const reporterFallback = reporterName ||
         (reporter?.id != null ? `Telegram ID ${reporter.id}` : 'Unknown (not recorded)');
       const author = node('div', 'report-author');
       author.append(node('span', 'report-author-label', 'Report by: '),
-        linkOrText(reporterLabel, telegramProfile(reporterUsername), 'report-author-value'));
+        engineerReveal(reporterUsername, reporterFallback, 'report-author-value'));
       reportEntry.append(author);
       const reported = node('time', 'report-time', `Reported ${reportDateTime(entry.reported_at)} · MMT`);
       reported.dateTime = entry.reported_at;
@@ -122,7 +175,19 @@ function card(task) {
   const stamp = node('time', 'timestamp', time(task.updated_at) ? `Updated ${time(task.updated_at)}` : '');
   if (time(task.updated_at)) stamp.dateTime = task.updated_at;
   bottom.append(manager, stamp);
-  article.append(top, body, bottom);
+
+  body.hidden = true;
+  bottom.hidden = true;
+  expand.addEventListener('click', () => {
+    const opening = body.hidden;
+    body.hidden = !opening;
+    bottom.hidden = !opening;
+    expand.textContent = opening ? '▴' : '▾';
+    const label = opening ? 'Collapse details' : 'Expand details';
+    expand.title = label;
+    expand.setAttribute('aria-label', label);
+  });
+  article.append(top, dateRow, body, bottom);
   return article;
 }
 function message(title, detail, retry = false) {

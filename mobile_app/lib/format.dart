@@ -11,7 +11,7 @@ const Map<String, String> engineerNames = <String, String>{
   'zyme3': 'Htet Wai Yan',
   'hmue_gyi': 'Hmue Sat San',
   'kyawswarhtunlinnaung': 'Kyaw Swar Htun',
-  'karmine': 'Yu Yu Aung',
+  'mkaddison': 'Yu Yu Aung',
 };
 
 DateTime _inMmt(DateTime? value) =>
@@ -42,5 +42,20 @@ String reportAuthorLabel(ReportEntry report) {
   return 'Unknown (not recorded)';
 }
 
-bool isValidTelegramHandle(String handle) =>
-    RegExp(r'^[a-zA-Z0-9_]{5,32}$').hasMatch(handle.replaceFirst(RegExp(r'^@'), ''));
+/// Name shown in the UI. Telegram handles stay hidden until the user taps.
+String engineerDisplayName(String? username, {String? fallbackName}) {
+  final handle = (username ?? '').replaceFirst(RegExp(r'^@'), '');
+  final name = engineerNames[handle.toLowerCase()] ?? fallbackName;
+  if (name != null && name.isNotEmpty) return name;
+  return 'Engineer';
+}
+
+String reportAuthorDisplayName(ReportEntry report) {
+  final name = engineerNames[(report.authorUsername ?? '')
+          .replaceFirst(RegExp(r'^@'), '')
+          .toLowerCase()] ??
+      report.authorName;
+  if (name != null && name.isNotEmpty) return name;
+  if (report.authorId != null) return 'Telegram ID ${report.authorId}';
+  return 'Unknown (not recorded)';
+}

@@ -1,6 +1,6 @@
 # Employee Tasks — Android App
 
-ဒါက `employee_tasks_dashboard` အတွက် Flutter Android client ပါ။ Web dashboard ရဲ့ အပြင်အဆင်နဲ့ ဒေတာကိုပဲ သုံးထားတယ်။ **Firebase မသုံးပါဘူး** — လိုအပ်တဲ့အခါ server က `json_data_records` ထဲက JSON ကို တောင်းယူပြီး ဖုန်းထဲ cache လုပ်တယ်။ Report ကိုတော့ Telegram ဆီ တိုက်ရိုက်ပို့တယ်။
+ဒါက `employee_tasks_dashboard` အတွက် Flutter Android client ပါ။ Web dashboard ရဲ့ အပြင်အဆင်နဲ့ ဒေတာကိုပဲ သုံးထားတယ်။ **Firebase မသုံးပါဘူး** — လိုအပ်တဲ့အခါ server က `json_data_records` ထဲက JSON ကို တောင်းယူပြီး ဖုန်းထဲ cache လုပ်တယ်။ Report ပို့တဲ့ feature မပါတော့ဘူး — server က ပြန်ပို့တဲ့ Engineer Report ကိုပဲ ဖတ်ပြတယ်။
 
 ---
 
@@ -35,12 +35,67 @@ flutter doctor
 cd /home/mr_robot/Desktop/employee_tasks_dashboard/mobile_app
 flutter pub get
 flutter analyze        # "No issues found" ဖြစ်ရမယ်
-flutter test           # 13 tests pass ဖြစ်ရမယ်
+flutter test           # 21 tests pass ဖြစ်ရမယ်
 ```
 
 ---
 
-## ၃။ Server ဘက်မှာ လုပ်ရမယ့်အရာ
+## ၃။ Emulator မှာ စမ်းနည်း (စက်ပေါ်မှာ တကယ်စမ်းပြီး အဆင်ပြေတာ)
+
+ဒီစက်မှာ AVD ရှိပြီးသားပါ — `Medium_Phone_API_37.0` (Android 17, x86_64, Google Play image)။ `/dev/kvm` လည်း အဆင်ပြေနေတယ်။ အသစ် download လုပ်စရာ မလိုပါဘူး။
+
+### Emulator ဖွင့်ပါ
+
+```bash
+export PATH="$HOME/.flutter/bin:$PATH"
+export ANDROID_HOME="$HOME/Android/Sdk"
+export JAVA_HOME="$HOME/.android-studio/jbr"
+
+flutter emulators                                  # AVD စာရင်းပြတယ်
+flutter emulators --launch Medium_Phone_API_37.0    # emulator ဖွင့်ပြီး boot ပြီးအောင် စောင့်ပါ
+
+$ANDROID_HOME/platform-tools/adb devices            # emulator-5554  device ပြရမယ်
+```
+
+Boot ပြီးမပြီး စစ်ချင်ရင်:
+
+```bash
+$ANDROID_HOME/platform-tools/adb wait-for-device
+$ANDROID_HOME/platform-tools/adb shell getprop sys.boot_completed   # 1 = boot ပြီး
+```
+
+AVD အသစ်လိုချင်ရင်တော့ `flutter emulators --create --name MyPhone` (သို့မဟုတ် Android Studio → Device Manager) နဲ့ ဖန်တီးနိုင်ပါတယ်။
+
+### App ကို emulator ပေါ်မှာ run လုပ်ပါ
+
+```bash
+cd /home/mr_robot/Desktop/employee_tasks_dashboard/mobile_app
+flutter run -d emulator-5554 --debug
+```
+
+Device တစ်ခုတည်းပဲ ချိတ်ထားရင် `flutter run` လို့ပဲ ရိုက်လို့ရပါတယ်။ `flutter run` ဖွင့်ပြီးနောက် terminal ထဲမှာ `r` = hot reload, `R` = hot restart, `q` = quit ဖြစ်ပါတယ်။
+
+Android Studio သုံးနေရင်လည်း အပေါ်က device dropdown ထဲက `Medium Phone API 37.0` ကိုရွေးပြီး ▶ Run နှိပ်လို့ရပါတယ်။
+
+ပထမဆုံး ဖွင့်တဲ့အခါ Settings မဖြည့်ရသေးရင် **"Set the server URL and mobile API token in Settings first."** ဆိုတဲ့ စာပြလိမ့်မယ် — အဲဒါ ပုံမှန်ပါပဲ။ နောက်တစ်ဆင့်အတိုင်း ⚙️ ကနေ URL နဲ့ token ထည့်ပြီး sync လုပ်ပါ။
+
+### Server က ဒီစက်ထဲမှာပဲ ရှိနေရင် (အရေးကြီး)
+
+Emulator ရဲ့ `localhost` က သူ့ကိုယ်သူ ဖြစ်နေတယ် — `http://localhost...` မသုံးပါနဲ့။ ဒီ project ရဲ့ default `docker-compose.yml` က host ပေါ်မှာ port 80/443 ပဲ ဖွင့်ပြီး 80 က https ကို redirect လုပ်တယ်၊ cert လည်း `.env` ထဲက `${DOMAIN}` အတွက်ဖြစ်တယ်။ ဒါကြောင့် emulator ထဲမှာ IP (`10.0.2.2`) နဲ့ စမ်းတာထက် **တကယ့် domain URL ကိုပဲ ထည့်ပါ** — ဥပမာ `https://dashboard.example.com`။
+
+တကယ်လို့ ဒီစက်ထဲက Flask ကို port 8000 တိုက်ရိုက် (nginx မပါဘဲ) ဖွင့်စမ်းနေရင်တော့ `http://10.0.2.2:8000` သုံးလို့ရပါတယ်။
+
+### ဒီ project မှာ ရလဒ်
+
+```
+flutter emulators --launch Medium_Phone_API_37.0 → emulator-5554 boot ပြီး (Android 17, x86_64)
+flutter run -d emulator-5554 --debug             → Launching lib/main.dart ... Syncing files to device ... 103ms
+မျက်နှာပြင်                                      → "Employee Tasks / Daily log" ပြ၊ ⚙️ မြင်ရ၊ error မရှိ
+```
+
+---
+
+## ၄။ Server ဘက်မှာ လုပ်ရမယ့်အရာ
 
 `.env` ထဲမှာ mobile အတွက် read-only token ထည့်ပါ (အနည်းဆုံး စာလုံး ၃၂ လုံး):
 
@@ -70,7 +125,7 @@ Server ရဲ့ endpoint နှစ်ခုက ဒီလိုပါ:
 
 ---
 
-## ၄။ App ထဲမှာ Settings ဖြည့်ပါ
+## ၅။ App ထဲမှာ Settings ဖြည့်ပါ
 
 App ကို ဖွင့်ပြီး ညာဘက်အပေါ်က ⚙️ (Settings) ကို နှိပ်ပါ:
 
@@ -78,15 +133,9 @@ App ကို ဖွင့်ပြီး ညာဘက်အပေါ်က ⚙�
 2. **Mobile API token** — အပေါ်က `MOBILE_API_TOKEN` နဲ့ တူတူ
 3. **Sync from server** ကို နှိပ်ပါ (app ဖွင့်တိုင်း အလိုအလျောက်လည်း sync လုပ်တယ်)
 
-Report ပို့ချင်ရင်တော့ ဒီအချက်အလက်တွေ ထပ်ဖြည့်ပါ:
-
-4. **Report chat ID** — report လက်ခံမယ့် Telegram chat/user ID (ဂဏန်း)
-5. **Your Telegram username** (optional) — report မှာ author အမည်အဖြစ် ပြမယ်
-6. **Telegram bot token** — report ပို့မယ့် bot ရဲ့ token
-
 ---
 
-## ၅။ APK ထုတ်နည်း (ဘယ်ကစပြီး ဘာရိုက်ရမလဲ)
+## ၆။ APK ထုတ်နည်း (ဘယ်ကစပြီး ဘာရိုက်ရမလဲ)
 
 ### Debug APK (စမ်းသပ်ဖို့ အဆင်ပြေဆုံး)
 
@@ -130,32 +179,34 @@ flutter install
 
 ---
 
-## ၆။ ဒေတာ ဘယ်လိုရောက်လဲ
+## ၇။ ဒေတာ ဘယ်လိုရောက်လဲ
 
 ```
 Server json_data_records ──(GET /api/mobile/data/<date>)──▶ App ──▶ ဖုန်းထဲ cache
-App ──(sendMessage)────────────────────────────────────────▶ Telegram Bot API
 ```
 
 - App ဖွင့်တဲ့အခါ / ရက်ပြောင်းတဲ့အခါ / sync button / pull-to-refresh တို့မှာ server ကို တောင်းတယ်။
 - ပြန်ရတဲ့ JSON ကို `SharedPreferences` ထဲ သိမ်းပြီး UI က အဲဒီ cache ကပဲ ဖတ်တယ် — network မရှိရင်လည်း အရင်ဒေတာ ပြနေမယ်။
-- Report ပို့တာက bot ရဲ့ `notify_report_received` ပုံစံအတိုင်း Telegram ဆီ တိုက်ရိုက် message ပို့တာပါ။ ဒါက **dashboard JSON ကို ရေးတာ မဟုတ်ပါဘူး** — JSON မှာ မှတ်ချင်ရင် Telegram bot ရဲ့ `/report` ကမှ ရေးပေးတယ်။
+- Card တွေက default အနေနဲ့ ကျုံ့ထားပါတယ် — date row ရဲ့ ညာဘက်ဆုံး ▾ **Expand details** နှိပ်မှ description / Engineer Report / Assigned by အသေးစိတ်တွေ ပြတယ်။ ဒါကြောင့် data နည်းများအလိုက် card အရွယ်အစား ရုတ်တရက် မပြောင်းတော့ဘူး။
+- Engineer နာမည်ပြတဲ့နေရာမှာ `@username` ကို မပြဘဲ alias/နာမည်ပဲ ပြတယ်။ နာမည်ကို နှိပ်တာ (သို့) ဖိထားတာနဲ့ `@username` ပြလာပြီး Telegram profile ကို ဖွင့်ပေးတယ် (WebUI မှာလည်း အတူတူပါပဲ)။
 - **Server က ကိုယ်တိုင် push လုပ်တာ မရှိတော့ပါဘူး** — အသစ်ရေးထားတဲ့ task က app ဖွင့်/refresh လုပ်မှ ရောက်မယ်။
 
 ---
 
-## ၇။ လုံခြုံရေး
+## ၈။ လုံခြုံရေး
 
-- Bot token က အကန့်အသတ်မရှိပါဘူး — ထုတ်ယူသွားရင် bot ကို လုံးဝ ထိန်းချုပ်နိုင်တယ်။ App ထဲ source မှာ မထည့်ဘဲ Settings ကနေပဲ ထည့်စေတယ်၊ ဖုန်းထဲမှာပဲ သိမ်းတယ်၊ log မှာ မရေးပါဘူး။ **သီးခြား low-privilege reporting bot သုံးပြီး token ကို ပုံမှန် rotate လုပ်ပါ။**
 - `MOBILE_API_TOKEN` ကိုလည်း လျှို့ဝှက်ထားပါ — ဒါက နေ့စဉ် အချက်အလက်အားလုံးကို ဖတ်ခွင့်ပေးတယ်။
 
 ---
 
-## ၈။ အခက်အခဲ တွေ့ရင်
+## ၉။ အခက်အခဲ တွေ့ရင်
 
 | လက္ခဏာ | ဖြေရှင်းနည်း |
 | --- | --- |
 | `401` ပြတယ် | App Settings ထဲက token နဲ့ server `.env` ထဲက `MOBILE_API_TOKEN` တူမတူ စစ်ပါ |
+| Emulator မတွေ့ / `flutter run` က device မရှိဘူး | `flutter emulators` နဲ့ AVD ရှိမရှိ စစ်ပါ၊ `flutter emulators --launch <id>` နဲ့ ဖွင့်ပါ၊ `adb devices` မှာ `emulator-5554` ပြရမယ် |
+| Emulator boot မဖြစ်ဘူး | `/dev/kvm` ရှိမရှိနဲ့ `flutter doctor -v` စစ်ပါ။ Boot နှေးရင် `adb wait-for-device` ပြီး `getprop sys.boot_completed` က `1` ဖြစ်အောင် စောင့်ပါ |
+| Emulator ထဲကနေ server နဲ့ မဆက်ရဘူး | `localhost` မသုံးပါနဲ့။ Default setup မှာ domain URL (`https://<DOMAIN>`) ကိုပဲ သုံးပါ။ Flask ကို 8000 တိုက်ရိုက်ဖွင့်ထားရင်တော့ `http://10.0.2.2:8000` (အပေါ် အခန်း ၃ ကြည့်ပါ) |
 | `flutter doctor` မှာ SDK မတွေ့ | `export ANDROID_HOME=$HOME/Android/Sdk` ထားပြီး ပြန်စစ်ပါ |
 | Gradle က NDK/platform ပြန်ဆွဲနေတယ် | `android/gradle.properties` ထဲက `android.builder.sdkDownload=false` ကို ဖြေထားမိမိ စစ်ပါ |
 | ထူးဆန်းတဲ့ build error | `flutter clean && flutter pub get && flutter build apk --debug` ပြန်လုပ်ပါ |
@@ -163,11 +214,60 @@ App ──(sendMessage)───────────────────
 
 ---
 
-## ၉။ အတည်ပြုချက် (ဒီ project မှာ တကယ်လုပ်ခဲ့တာ)
+## ၁၀။ အတည်ပြုချက် (ဒီ project မှာ တကယ်လုပ်ခဲ့တာ)
 
 ```
-flutter analyze       → No issues found
-flutter test          → 13 tests passed
-flutter build apk     → BUILD_EXIT=0, app-debug.apk ထွက်ပြီး
-python unittest       → 30 ထဲ 29 pass (1 က အရင်ကတည်းက ရှိနေတဲ့ fixture ပြဿနာ)
+flutter analyze                            → No issues found
+flutter test                               → 21 tests passed (SSE push test ဖယ်ရှိ၊ scheduled-fetch test ထပ်ထည့်)
+flutter build apk                          → BUILD_EXIT=0, app-debug.apk ထွက်ပြီး
+flutter emulators --launch ...             → emulator-5554 boot (Android 17, x86_64)
+flutter run -d emulator-5554 --debug       → app ဖွင့်၊ "Daily log" မျက်နှာပြင်ပြ၊ error မရှိ
+python unittest                            → 30 ထဲ 29 pass (1 က အရင်ကတည်းက ရှိနေတဲ့ fixture ပြဿနာ)
 ```
+
+---
+
+## ၁၁။ Cron Job (Android အတွက်ပဲ — WebUI မှာ မပါဘူး)
+
+Home screen ရဲ့ **ဘယ်ဘက်အပေါ်က ☰ menu** ကို နှိပ်ပြီး ဘယ်ဘက်က drawer ထဲက **Cron Jobs** ကို ရွေးပါ။ (Drawer ထဲမှာ Dashboard / Cron Jobs / Settings ရှိပါတယ်)။
+
+1. **What to remind** — notification မှာ ပြမယ့်စာသား
+2. ရက်နဲ့ အချိန်ကို ရွေးပါ ( နှစ်ခုလုံး **Myanmar Time (MMT)** အတိုင်း အဓိပ္ပာယ်ဖွင့်တယ်)
+3. **Repeat** မှာ တစ်ခု ရွေးပါ:
+
+| ရွေးချယ်မှု | အပြုအမူ |
+| --- | --- |
+| `Once` | ရွေးထားတဲ့ ရက်နဲ့အချိန်မှာ တစ်ကြိမ်ပဲ ရောက်တယ် |
+| `Every day` | တစ်ကြိမ်သတ်မှတ်ပြီးရင် **နောက်ရက်တိုင်း** အဲဒီအချိန်မှာ ထပ်ရောက်တယ် |
+| `Selected weekdays` | ရွေးထားတဲ့ နေ့တွေ (Mon…Sun) မှာ ထပ်ရောက်တယ် — နေ့တစ်ခုချင်းစီအတွက် notification ID သီးခြား သုံးတယ် |
+
+4. **Set job** ကို နှိပ်ပါ။ **SCHEDULED** စာရင်းထဲက မလိုချင်တာကို ညာဘက်က delete icon နဲ့ ဖျက်လို့ရပါတယ်။
+
+App က notification permission နဲ့ exact-alarm permission ကို ဖွင့်တဲ့အခါ တောင်းပါတယ်။ Job တွေက app ပိတ်ထားရင်တောင် notification အဖြစ် ရောက်ပါတယ် (`flutter_local_notifications` + `timezone` သုံးထားတယ်)။ Reboot ပြီးရင် ပြန်လည်သတ်မှတ်ဖို့ boot receiver တွေ manifest ထဲမှာ ထည့်ထားပါတယ်။
+
+> UI ကို **Engineer Tasks** လို့ ပြောင်းထားပါတယ်။ Theme (light/dark) ကို Settings ထဲက **APPEARANCE** မှာ ပြောင်းပါတယ် — title bar ထဲက gear icon ကို ဖယ်ထားပါတယ်။
+
+---
+
+## ၁၂။ Contacts နဲ့ Messages (Android အတွက်ပဲ)
+
+ဘယ်ဘက် drawer ထဲက **Contacts** / **Messages** ကနေ ဖွင့်ပါတယ်။
+
+- **Contacts** — ဖုန်းထဲက contact တွေကို ဖတ်ပြတယ် (`flutter_contacts`), ရှာနိုင်တယ်၊ အသစ်ထည့် / ပြင်ဆင် / ဖျက်လို့ရတယ်။ ပထမဆုံး ဖွင့်တဲ့အခါ read/write permission တောင်းပါတယ်။
+- **Messages** — ဖုန်းထဲက SMS တွေကို **မဖတ်ပါဘူး**။ ဒီ app ကနေ နံပါတ်တစ်ခုဆီ SMS ပို့နိုင်ပြီး (`sms_sender` + SEND_SMS permission) **ဒီ app က ပို့ထားတဲ့ message တွေကိုပဲ** စာရင်းပြပါတယ် — ဖုန်းထဲမှာ သိမ်းပါတယ်။
+
+> SMS ပို့တာကို emulator မှာ SIM မရှိလို့ စမ်းလို့ မရပါဘူး — တကယ့် device မှာ စမ်းပါ။ ကုဒ်မှာတော့ fake gateway နဲ့ unit/widget test တွေ ရပါပြီ။
+
+---
+
+---
+
+## ၁၃။ Scheduled fetch (Firebase / SSE မသုံးပဲ)
+
+အခု app က server ဆီကနေ **schedule လုပ်ထားတဲ့ fetch** နဲ့ပဲ အလုပ်လုပ်ပါတယ် — SSE stream နဲ့ FCM နှစ်ခုလုံး ဖယ်ထားပါတယ်။
+
+- `workmanager 0.10.10` နဲ့ Android WorkManager periodic task (`employee-tasks-fetch`) ကို **၁ နာရီတစ်ခေါက်** (network ရှိမှ) စီစဉ်ထားတယ်။
+- Background task က `/api/mobile/dates` + `/api/mobile/data/<date>` ကို ခေါ်ပြီး cache ထဲက အရင်ဒေတာနဲ့ `updated_at` ယှဉ်တယ်။ **ပြောင်းမှသာ** local notification ပြတယ် (`shouldNotify()`)။
+- App ဖွင့်ထားတဲ့အခါ ရိုးရိုး sync (open / date change / button / pull-to-refresh) ကတော့ အရင်အတိုင်း ရှိနေတယ်။
+
+> WorkManager က app ပိတ်ထားရင်တောင် background မှာ အလုပ်လုပ်ပါတယ် — Firebase credential မလိုပါဘူး။ OEM battery optimizer တွေကတော့ နှောင့်နှေးစေနိုင်ပါတယ်။

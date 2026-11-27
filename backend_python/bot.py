@@ -35,6 +35,25 @@ TASK_ASSIGNMENT_PROMPTS = {
     TASK_DESCRIPTION: "Describe the task. You can include multiple lines:",
 }
 
+# Display aliases for known Telegram handles (lowercase usernames).
+# Stored data keeps the real username; only the labels use these names.
+EMPLOYEE_ALIASES = {
+    "di_qing_bai": "PhyuPyarChanMyaeKyaw",
+    "doloresax": "Aung Khant Moe",
+    "zyme3": "Htet Wai Yan",
+    "hmue_gyi": "Hmue Sat San",
+    "kyawswarhtunlinnaung": "Kyaw Swar Htun",
+    "mkaddison": "Yu Yu Aung",
+}
+
+
+def engineer_label(username: str) -> str:
+    handle = (username or "").lstrip("@")
+    name = EMPLOYEE_ALIASES.get(handle.casefold())
+    if not handle:
+        return name or "Unknown"
+    return f"@{handle} - {name}" if name else f"@{handle}"
+
 
 def task_name(task: dict) -> str:
     return task.get("task") or task.get("repo", {}).get("name", "Untitled task")
@@ -246,7 +265,7 @@ async def employee_keyboard(context: ContextTypes.DEFAULT_TYPE) -> tuple[list[di
         employee = {"id": user_id, "username": username}
         employees.append(employee)
         buttons.append(
-            InlineKeyboardButton(f"@{username}"[:64], callback_data=f"assign_employee:{user_id}")
+            InlineKeyboardButton(engineer_label(username)[:64], callback_data=f"assign_employee:{user_id}")
         )
 
     if not buttons:
@@ -289,7 +308,7 @@ async def select_task_employee(
     context.user_data.pop(f"{state_key}:employees", None)
     context.user_data[f"{state_key}:step"] = TASK_DESCRIPTION
     await query.edit_message_text(
-        f"Assigned to @{selected['username']}.\n{TASK_ASSIGNMENT_PROMPTS[TASK_DESCRIPTION]}"
+        f"Assigned to {engineer_label(selected['username'])}.\n{TASK_ASSIGNMENT_PROMPTS[TASK_DESCRIPTION]}"
     )
     return TASK_DESCRIPTION
 
@@ -431,7 +450,7 @@ async def report_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         context.user_data[report_key(update)] = tasks
         buttons = [
             InlineKeyboardButton(
-                f"📝 {task_name(task)} · @{task_username(task)}"[:64],
+                f"📝 {task_name(task)} · {engineer_label(task_username(task))}"[:64],
                 callback_data=f"report_task:{index}",
             )
             for index, task in enumerate(tasks)
@@ -481,7 +500,7 @@ async def report_select_task(update: Update, context: ContextTypes.DEFAULT_TYPE)
     context.user_data[report_key(update)] = selected_task
     await query.edit_message_text(
         f"📝 {task_name(selected_task)}\n"
-        f"Engineer: @{task_username(selected_task)}\n\n"
+        f"Engineer: {engineer_label(task_username(selected_task))}\n\n"
         "Send the report below. New reports will be added after previous reports."
     )
     if context.bot_data.get("group_chat_allowed") and update.effective_chat.id == context.bot_data.get("group_chat_id"):
@@ -539,7 +558,7 @@ async def notify_report_received(
         "📝 Task report received",
         f"Task ID: {task['id']}",
         f"Task: {task_name(task)}",
-        f"Assigned to: @{task_username(task).lstrip('@')}",
+        f"Assigned to: {engineer_label(task_username(task))}",
         f"Reported by: {reporter}",
         "", description,
     ])
@@ -626,7 +645,7 @@ def task_detail_text(task: dict, date: str) -> str:
             f"📋 {task_name(task)}",
             f"Task ID: {task['id']}",
             f"📅 {date}",
-            f"👷 Engineer: @{task_username(task)}",
+            f"👷 Engineer: {engineer_label(task_username(task))}",
             f"Status: {'✅ Completed' if task.get('status') == 'completed' else '🟡 In progress'}",
             "",
             "Description",

@@ -6,11 +6,18 @@ plugins {
 
 android {
     namespace = "com.employeetasks.employee_tasks_mobile"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_local_notifications 23 compiles against API 37.
+    compileSdk = 37
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Required by flutter_local_notifications 23.
+        isCoreLibraryDesugaringEnabled = true
+    }
+
+    dependencies {
+        coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     }
 
     defaultConfig {

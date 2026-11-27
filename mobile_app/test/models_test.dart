@@ -48,8 +48,8 @@ void main() {
     expect(log.tasks.first.reports.single.description, 'Done');
     expect(engineerLabel(log.tasks.first.assigneeUsername),
         '@Di_Qing_Bai - PhyuPyarChanMyaeKyaw');
-    expect(reportAuthorLabel(log.tasks.first.reports.single),
-        '@Di_Qing_Bai - PhyuPyarChanMyaeKyaw');
+    expect(reportAuthorDisplayName(log.tasks.first.reports.single),
+        'PhyuPyarChanMyaeKyaw');
     expect(log.tasks.last.title, 'Legacy task');
     expect(log.tasks.last.assigneeUsername, 'sole_user');
     expect(log.tasks.last.isCompleted, isTrue);
@@ -79,5 +79,14 @@ void main() {
         'Telegram ID 42');
     expect(reportAuthorLabel(const ReportEntry(description: 'x')),
         'Unknown (not recorded)');
+  });
+
+  test('UI names hide Telegram handles', () {
+    expect(engineerDisplayName('MKAddison'), 'Yu Yu Aung');
+    expect(engineerDisplayName('unknown_user', fallbackName: 'New Engineer'),
+        'New Engineer');
+    expect(engineerDisplayName(null), 'Engineer');
+    expect(reportAuthorDisplayName(const ReportEntry(
+        description: 'x', authorUsername: 'zyme3')), 'Htet Wai Yan');
   });
 }

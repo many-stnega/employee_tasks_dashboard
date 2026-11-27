@@ -9,13 +9,16 @@ import 'models.dart';
 const String logsPrefsKey = 'daily_logs_v1';
 const String _selectedDateKey = 'selected_date_v1';
 const String _darkThemeKey = 'dark_theme_v1';
-const String _telegramUserIdKey = 'telegram_user_id_v1';
-const String _reportChatIdKey = 'report_chat_id_v1';
-const String _reporterNameKey = 'reporter_name_v1';
-const String _botTokenKey = 'bot_token_v1';
 const String _serverUrlKey = 'server_url_v1';
 const String _mobileTokenKey = 'mobile_token_v1';
 const String _noticeKey = 'last_notice_v1';
+
+// Legacy keys from the removed report-sending feature; purged on load so an
+// old bot token does not keep sitting on the device.
+const String _legacyTelegramUserIdKey = 'telegram_user_id_v1';
+const String _legacyReportChatIdKey = 'report_chat_id_v1';
+const String _legacyReporterNameKey = 'reporter_name_v1';
+const String _legacyBotTokenKey = 'bot_token_v1';
 
 String todayKey() {
   final now = DateTime.now().toUtc().add(mmtOffset);
@@ -44,23 +47,23 @@ class TaskStore extends ChangeNotifier {
   Map<String, DailyLog> _logs = <String, DailyLog>{};
   String _selectedDate = todayKey();
   bool _dark = false;
-  String _telegramUserId = '';
-  String _reportChatId = '';
-  String _reporterName = '';
-  String _botToken = '';
   String _serverUrl = '';
   String _mobileToken = '';
   String _notice = '';
 
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
+    for (final key in <String>[
+      _legacyTelegramUserIdKey,
+      _legacyReportChatIdKey,
+      _legacyReporterNameKey,
+      _legacyBotTokenKey,
+    ]) {
+      await _prefs!.remove(key);
+    }
     _logs = readStoredLogs(_prefs!);
     _selectedDate = _prefs!.getString(_selectedDateKey) ?? todayKey();
     _dark = _prefs!.getBool(_darkThemeKey) ?? false;
-    _telegramUserId = _prefs!.getString(_telegramUserIdKey) ?? '';
-    _reportChatId = _prefs!.getString(_reportChatIdKey) ?? '';
-    _reporterName = _prefs!.getString(_reporterNameKey) ?? '';
-    _botToken = _prefs!.getString(_botTokenKey) ?? '';
     _serverUrl = _prefs!.getString(_serverUrlKey) ?? '';
     _mobileToken = _prefs!.getString(_mobileTokenKey) ?? '';
     _notice = _prefs!.getString(_noticeKey) ?? '';
@@ -71,14 +74,11 @@ class TaskStore extends ChangeNotifier {
   List<String> get dates => _logs.keys.toList()..sort();
   String get selectedDate => _selectedDate;
   bool get dark => _dark;
-  String get telegramUserId => _telegramUserId;
-  String get reportChatId => _reportChatId;
-  String get reporterName => _reporterName;
-  String get botToken => _botToken;
   String get serverUrl => _serverUrl;
   String get mobileToken => _mobileToken;
   String get notice => _notice;
   bool isCached(String date) => _logs.containsKey(date);
+  DailyLog? cachedDay(String date) => _logs[date];
 
   Future<void> _saveLogs() async {
     await _prefs?.setString(
@@ -105,30 +105,6 @@ class TaskStore extends ChangeNotifier {
   Future<void> setDark(bool value) async {
     _dark = value;
     await _prefs?.setBool(_darkThemeKey, value);
-    notifyListeners();
-  }
-
-  Future<void> setTelegramUserId(String value) async {
-    _telegramUserId = value.trim();
-    await _prefs?.setString(_telegramUserIdKey, _telegramUserId);
-    notifyListeners();
-  }
-
-  Future<void> setReportChatId(String value) async {
-    _reportChatId = value.trim();
-    await _prefs?.setString(_reportChatIdKey, _reportChatId);
-    notifyListeners();
-  }
-
-  Future<void> setReporterName(String value) async {
-    _reporterName = value.trim();
-    await _prefs?.setString(_reporterNameKey, _reporterName);
-    notifyListeners();
-  }
-
-  Future<void> setBotToken(String value) async {
-    _botToken = value.trim();
-    await _prefs?.setString(_botTokenKey, _botToken);
     notifyListeners();
   }
 
