@@ -1,0 +1,111 @@
+{
+  "date": "2026-11-27",
+  "tasks": [
+    {
+      "id": "20261126-01",
+      "created_at": "2026-11-26T11:13:08+06:30",
+      "task": "Business_Angel ရှာဖွေရေး",
+      "assigned_to": {
+        "username": "Di_Qing_Bai",
+        "user_id": 1605652713
+      },
+      "description": "Github Organization မှာ repo ဆောက်ပြီး နေ့စဥ် ညနေ ၄ နာရီတွင် ပြီးမြောက်ထားသော progress အား ရှင်းလင်းစွာရေးသားပေးပါရန်။ \nGithub Repo ကို ထည့်ပေးပါ။",
+      "status": "active",
+      "updated_at": "2026-11-27T16:53:49+06:30",
+      "employee_reports": [
+        {
+          "description": "27.11.26 ရက်နေ့မှာ AngelList အတွက် ပို့ဖို့ email ပြင်ပီး။ Japan နဲ့ Netherland base Fundrising Group ပါ။ ရန်ကုန်မှာ ရုံးခွဲရှိပါတယ်။ မြန်မာက ကုမ္ပဏီ ၈ ခုကို invest ထုတ်ပေးထားဖူးပါတယ်။ investment က $50k- $200k အထိထုတ်ပေးဖူးပါတယ်။ သူတို့ website မှာ လိုအပ်ချက်တွေဘာမှ မရေးထားလို့ email ပို့ပီးမေးရပါမယ်။ ပေးတဲ့ Business တွေက innovative Business တွေကို ရွေးပါတယ်။ ပို့ဖို့ email ပြင်ထားပီးပါပီ။ ဘယ်လိုတွေထပ်ပြောချင်လဲ ဆရာတို့ စစ်ပေးရပါမယ်။ git repo မှာ update လုပ်ထားပီးပါပီ။",
+          "reported_at": "2026-11-27T16:53:49+06:30",
+          "reported_by": {
+            "id": 1605652713,
+            "name": "Phyu Pyar Chan Myae Kyaw",
+            "username": "Di_Qing_Bai"
+          }
+        }
+      ]
+    },
+    {
+      "id": "20261126-02",
+      "created_at": "2026-11-26T11:19:08+06:30",
+      "task": "OpenXR_Gazebo_Integration",
+      "assigned_to": {
+        "username": "DoloresAx",
+        "user_id": 6465664961
+      },
+      "description": "https://github.com/ROM-robotics/openxr_gazebo_plugin\nဒီ repo မှာ ဘာတွေ လုပ်ထားသလဲ \nတစ်ရက်စာ လုပ်ထားတဲ့အပိုင်းတွေကို ရှင်းလင်းစွာ ရေးသား report လုပ်ပေးပါ။",
+      "status": "active",
+      "updated_at": "2026-11-27T16:52:49+06:30",
+      "employee_reports": [
+        {
+          "description": "Continue strereo rendering Image ကို gazebo က နေ quest မှာ rendering လုပ်ပြီး 10 Hz\n\n\n\nENU to NED frame မမှန် ဖြစ်နေ\n\nMeta quest နဲ့ ကိုက်ညီအောင် Resolution ချိန်ညှိရန်လို\n\n10 Hz to 60Hz to 90Hz သွားရန်ကျန်",
+          "reported_at": "2026-11-27T16:52:49+06:30",
+          "reported_by": {
+            "id": 8331665036,
+            "name": "ROM Robotics",
+            "username": "romrobotics_tele"
+          }
+        }
+      ]
+    },
+    {
+      "id": "20261126-04",
+      "created_at": "2026-11-26T13:24:25+06:30",
+      "task": "RK3588 SDK တည်ဆောက်ခြင်း နှင့် Vision AI Box Project",
+      "assigned_to": {
+        "username": "kyawswarhtunlinnaung",
+        "user_id": 1425773854
+      },
+      "description": "git@github.com:Open-Source-Robotics-For-Myanmar/Rockstar.git\n\nSDK တည်ဆောက်ပုံနှင့် Cross Build နည်းလမ်းများ \ndemo C++ app နှင့် Vision AI Box Deployment လုပ်ခြင်း",
+      "status": "active",
+      "updated_at": "2026-11-27T09:00:00+06:30"
+    },
+    {
+      "id": "20261127-01",
+      "created_at": "2026-11-27T11:56:30+06:30",
+      "task": "Tracking System with Camera RGB",
+      "assigned_to": {
+        "username": "MKAddison",
+        "user_id": 1614032460
+      },
+      "description": "Tracking \nမှာ AI Model မသုံးပဲဘယ်လိုအလုပ်လုပ်ကြသလဲ?\nAI Model ကိုဘယ်မှာအသုံးပြုသလဲ? \nTracking Framework အမျိုးအစားများ\n\ntracking_analysis repo တည်ဆောက်ပြီး \nစမ်းသပ်မှု နှင့် README folder များထည့်ပြီး မြန်မာလို မှတ်ချက်များရေးပါ။",
+      "status": "active",
+      "updated_at": "2026-11-27T16:48:04+06:30",
+      "employee_reports": [
+        {
+          "description": "Implemented step by step analysis for Kalman filter / Established tracker list to analyse and added flow to implement",
+          "reported_at": "2026-11-27T16:48:04+06:30",
+          "reported_by": {
+            "id": 1614032460,
+            "name": "Karmine",
+            "username": "MKAddison"
+          }
+        }
+      ]
+    },
+    {
+      "id": "20261127-02",
+      "created_at": "2026-11-27T12:55:54+06:30",
+      "task": "RobotKit တည်ဆောက်ရေး",
+      "assigned_to": {
+        "username": "ZymE3",
+        "user_id": 1652694056
+      },
+      "description": "RobotKit တည်ဆောက်ရေး အတွက် နေ့စဥ် လုပ်ဆောင်ချက်များ ဖြည့်စွက်ပါ။",
+      "status": "active",
+      "updated_at": "2026-11-27T14:25:52+06:30",
+      "employee_reports": [
+        {
+          "description": "N20 motor နဲ့ DRV8833 motor driver ကို esp32 dev board v1 နဲ့ စမ်းသပ်ပြီး။ (https://github.com/Open-Source-Robotics-For-Myanmar/Hlae_V1) micro_ros_arduino code အကြမ်းရေးပြီး။",
+          "reported_at": "2026-11-27T14:25:52+06:30",
+          "reported_by": {
+            "id": 1652694056,
+            "name": "NULL",
+            "username": "ZymE3"
+          }
+        }
+      ]
+    }
+  ],
+  "updated_at": "2026-11-27T16:53:49+06:30",
+  "demo": false
+}
