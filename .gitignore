@@ -3,3 +3,5 @@ __pycache__/
 *.py[cod]
 .env
 !.venv/.gitkeep
+# Editable Telegram access settings (may contain private IDs)
+mobile_settings.json

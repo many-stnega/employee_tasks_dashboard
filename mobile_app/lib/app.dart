@@ -3,9 +3,11 @@ import 'package:material_ui/material_ui.dart';
 import 'contact_repository.dart';
 import 'message_store.dart';
 import 'reminder_store.dart';
+import 'sms_job_service.dart';
 import 'store.dart';
 import 'theme.dart';
 import 'screens/contacts_page.dart';
+import 'screens/admin_settings_page.dart';
 import 'screens/log_page.dart';
 import 'screens/messages_page.dart';
 import 'screens/reminder_page.dart';
@@ -16,6 +18,7 @@ class TaskApp extends StatelessWidget {
   final ReminderStore reminderStore;
   final ContactRepository contactRepository;
   final MessageStore messageStore;
+  final SmsJobScheduler smsJobScheduler;
 
   const TaskApp({
     super.key,
@@ -23,6 +26,7 @@ class TaskApp extends StatelessWidget {
     required this.reminderStore,
     required this.contactRepository,
     required this.messageStore,
+    required this.smsJobScheduler,
   });
 
   @override
@@ -36,7 +40,12 @@ class TaskApp extends StatelessWidget {
         home: LogPage(store: store),
         routes: <String, WidgetBuilder>{
           '/settings': (_) => SettingsPage(store: store),
-          '/reminders': (_) => ReminderPage(store: reminderStore),
+          '/admin-settings': (_) => AdminSettingsPage(store: store),
+          '/reminders': (_) => ReminderPage(
+            store: reminderStore,
+            taskStore: store,
+            smsJobs: smsJobScheduler,
+          ),
           '/contacts': (_) => ContactsPage(repository: contactRepository),
           '/messages': (_) => MessagesPage(store: messageStore),
         },

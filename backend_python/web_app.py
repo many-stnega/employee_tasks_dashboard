@@ -21,6 +21,11 @@ from flask import (
 )
 from werkzeug.security import check_password_hash
 
+try:
+    from . import mobile_settings
+except ImportError:  # direct script execution
+    import mobile_settings
+
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
     import crypt
@@ -55,16 +60,20 @@ def create_app() -> Flask:
     mobile_token = os.environ.get("MOBILE_API_TOKEN", "").strip()
     if mobile_token and len(mobile_token) < 32:
         raise RuntimeError("MOBILE_API_TOKEN must contain at least 32 characters.")
+    admin_token = os.environ.get("MOBILE_ADMIN_TOKEN", "").strip()
+    if admin_token and len(admin_token) < 32:
+        raise RuntimeError("MOBILE_ADMIN_TOKEN must contain at least 32 characters.")
 
     app = Flask(__name__, template_folder=str(WEB_ROOT))
     app.config.update(
         MOBILE_API_TOKEN=mobile_token,
+        MOBILE_ADMIN_TOKEN=admin_token,
         SECRET_KEY=secret_key,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SECURE=True,
         SESSION_COOKIE_SAMESITE="Strict",
         PERMANENT_SESSION_LIFETIME=8 * 60 * 60,
-        MAX_CONTENT_LENGTH=16 * 1024,
+        MAX_CONTENT_LENGTH=1024 * 1024,
         TASKS_DATA_DIR=os.environ.get("TASKS_DATA_DIR", str(PROJECT_ROOT / "json_data_records")),
     )
 
@@ -184,6 +193,36 @@ def create_app() -> Flask:
         if data is None:
             abort(404)
         return jsonify(data)
+
+    @app.get("/api/mobile/settings")
+    def mobile_settings_read():
+        if not mobile_authorized():
+            abort(401)
+        data = mobile_settings.settings_view()
+        return jsonify({
+            **data,
+            "counts": {
+                "users": len(data["users"]),
+                "groups": len(data["groups"]),
+                "task_assign": sum(1 for user in data["users"] if user["roles"]["assign"]),
+                "standard": sum(1 for user in data["users"] if user["roles"]["standard"]),
+            },
+        })
+
+    @app.put("/api/mobile/settings")
+    def mobile_settings_write():
+        admin_token = app.config.get("MOBILE_ADMIN_TOKEN", "")
+        supplied = request.headers.get("X-Mobile-Admin-Token", "")
+        if not admin_token or not supplied or not hmac.compare_digest(admin_token, supplied):
+            abort(401)
+        payload = request.get_json(silent=True)
+        try:
+            saved = mobile_settings.save_settings(payload)
+        except ValueError as error:
+            abort(400, description=str(error))
+        except OSError:
+            abort(500, description="Could not save settings file.")
+        return jsonify(saved)
 
     @app.get("/<path:asset>")
     def dashboard_asset(asset: str):

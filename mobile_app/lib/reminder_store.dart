@@ -14,6 +14,9 @@ class Reminder {
   final String repeat; // once | daily | weekly
   final List<int> weekdays; // DateTime.monday = 1 ... DateTime.sunday = 7
   final List<int> notificationIds;
+  final String phone; // SMS recipient for this cron job
+  final String taskId; // linked task card id
+  final String taskTitle; // linked task card title
 
   const Reminder({
     required this.id,
@@ -22,6 +25,9 @@ class Reminder {
     this.repeat = FlutterReminderScheduler.repeatOnce,
     this.weekdays = const <int>[],
     this.notificationIds = const <int>[],
+    this.phone = '',
+    this.taskId = '',
+    this.taskTitle = '',
   });
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -31,6 +37,9 @@ class Reminder {
         'repeat': repeat,
         'weekdays': weekdays,
         'notification_ids': notificationIds,
+        'phone': phone,
+        'task_id': taskId,
+        'task_title': taskTitle,
       };
 
   factory Reminder.fromJson(Map<String, dynamic> json) => Reminder(
@@ -47,6 +56,9 @@ class Reminder {
                 ?.map((value) => (value as num).toInt())
                 .toList() ??
             const <int>[],
+        phone: (json['phone'] as String?) ?? '',
+        taskId: (json['task_id'] as String?) ?? '',
+        taskTitle: (json['task_title'] as String?) ?? '',
       );
 }
 
@@ -81,6 +93,9 @@ class ReminderStore extends ChangeNotifier {
     DateTime when, {
     required String repeat,
     required List<int> weekdays,
+    String phone = '',
+    String taskId = '',
+    String taskTitle = '',
   }) async {
     final text = label.trim();
     if (text.isEmpty) return;
@@ -99,6 +114,9 @@ class ReminderStore extends ChangeNotifier {
       repeat: repeat,
       weekdays: List<int>.from(weekdays),
       notificationIds: ids,
+      phone: phone.trim(),
+      taskId: taskId,
+      taskTitle: taskTitle,
     );
     _reminders = <Reminder>[..._reminders, reminder];
     await _save();

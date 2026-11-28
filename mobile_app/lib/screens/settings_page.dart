@@ -98,6 +98,13 @@ class _SettingsPageState extends State<SettingsPage> {
             'Task data comes from the server\'s json_data_records only when needed and is cached on this phone.',
             style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
           ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () =>
+                Navigator.of(context).pushNamed('/admin-settings'),
+            icon: const Icon(Icons.admin_panel_settings_outlined),
+            label: const Text('Telegram access & carry settings'),
+          ),
           const SizedBox(height: 28),
           Text('APPEARANCE',
               style: TextStyle(

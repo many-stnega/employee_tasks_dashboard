@@ -11,6 +11,7 @@ const String _selectedDateKey = 'selected_date_v1';
 const String _darkThemeKey = 'dark_theme_v1';
 const String _serverUrlKey = 'server_url_v1';
 const String _mobileTokenKey = 'mobile_token_v1';
+const String _adminTokenKey = 'mobile_admin_token_v1';
 const String _noticeKey = 'last_notice_v1';
 
 // Legacy keys from the removed report-sending feature; purged on load so an
@@ -49,7 +50,27 @@ class TaskStore extends ChangeNotifier {
   bool _dark = false;
   String _serverUrl = '';
   String _mobileToken = '';
+  String _adminToken = '';
   String _notice = '';
+
+  /// Fills Settings once, on first launch, from values passed at build time.
+  /// Existing saved values always win, so a user edit is never overwritten.
+  Future<void> applyDefaults({
+    String serverUrl = '',
+    String mobileToken = '',
+    String adminToken = '',
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    Future<void> seed(String key, String value) async {
+      if (value.isNotEmpty && (prefs.getString(key) ?? '').isEmpty) {
+        await prefs.setString(key, value);
+      }
+    }
+
+    await seed(_serverUrlKey, serverUrl.trim());
+    await seed(_mobileTokenKey, mobileToken.trim());
+    await seed(_adminTokenKey, adminToken.trim());
+  }
 
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
@@ -66,6 +87,7 @@ class TaskStore extends ChangeNotifier {
     _dark = _prefs!.getBool(_darkThemeKey) ?? false;
     _serverUrl = _prefs!.getString(_serverUrlKey) ?? '';
     _mobileToken = _prefs!.getString(_mobileTokenKey) ?? '';
+    _adminToken = _prefs!.getString(_adminTokenKey) ?? '';
     _notice = _prefs!.getString(_noticeKey) ?? '';
     notifyListeners();
   }
@@ -76,9 +98,22 @@ class TaskStore extends ChangeNotifier {
   bool get dark => _dark;
   String get serverUrl => _serverUrl;
   String get mobileToken => _mobileToken;
+  String get adminToken => _adminToken;
   String get notice => _notice;
   bool isCached(String date) => _logs.containsKey(date);
   DailyLog? cachedDay(String date) => _logs[date];
+
+  /// Every cached task card, newest date first, deduplicated by task id.
+  List<TaskItem> get allTasks {
+    final seen = <String>{};
+    final tasks = <TaskItem>[];
+    for (final date in dates.reversed) {
+      for (final task in _logs[date]?.tasks ?? <TaskItem>[]) {
+        if (seen.add(task.id)) tasks.add(task);
+      }
+    }
+    return tasks;
+  }
 
   Future<void> _saveLogs() async {
     await _prefs?.setString(
@@ -117,6 +152,12 @@ class TaskStore extends ChangeNotifier {
   Future<void> setMobileToken(String value) async {
     _mobileToken = value.trim();
     await _prefs?.setString(_mobileTokenKey, _mobileToken);
+    notifyListeners();
+  }
+
+  Future<void> setAdminToken(String value) async {
+    _adminToken = value.trim();
+    await _prefs?.setString(_adminTokenKey, _adminToken);
     notifyListeners();
   }
 

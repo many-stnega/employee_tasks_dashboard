@@ -3,11 +3,61 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'data_service.dart';
+import 'message_service.dart';
 import 'reminder_service.dart';
+import 'reminder_store.dart';
+import 'sms_job_service.dart';
 import 'store.dart';
 import 'sync_service.dart';
 
 const String backgroundSyncTask = 'employeeTasksFetch';
+
+Future<bool> _runSmsJob(
+  FlutterLocalNotificationsPlugin notifications,
+  Map<String, dynamic>? inputData,
+) async {
+  try {
+    final id = (inputData?['reminder_id'] as num?)?.toInt();
+    if (id == null) return true;
+    final store = ReminderStore(
+      scheduler: FlutterReminderScheduler(notifications),
+    );
+    await store.load();
+    Reminder? job;
+    for (final item in store.reminders) {
+      if (item.id == id) {
+        job = item;
+        break;
+      }
+    }
+    if (job == null || job.phone.trim().isEmpty) return true;
+
+    final body = job.taskTitle.isEmpty
+        ? job.label
+        : '${job.label}\nTask: ${job.taskTitle}${job.taskId.isEmpty ? '' : ' (${job.taskId})'}';
+    await DeviceSmsGateway().send(phone: job.phone, body: body);
+    await notifications.show(
+      id: 1000000 + (id % 100000),
+      title: 'Engineer Tasks',
+      body: 'SMS cron job sent to ${job.phone}.',
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails(
+          FlutterReminderScheduler.channelId,
+          FlutterReminderScheduler.channelName,
+          channelDescription: FlutterReminderScheduler.channelDescription,
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
+    );
+    if (job.repeat != FlutterReminderScheduler.repeatOnce) {
+      await WorkmanagerSmsJobScheduler().schedule(job);
+    }
+    return true;
+  } catch (_) {
+    return true;
+  }
+}
 
 /// True when a fresh fetch brought in a different daily log.
 bool shouldNotify({required DateTime? previous, required DateTime? updated}) =>
@@ -19,7 +69,6 @@ bool shouldNotify({required DateTime? previous, required DateTime? updated}) =>
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    if (task != backgroundSyncTask) return true;
     try {
       WidgetsFlutterBinding.ensureInitialized();
       final notifications = FlutterLocalNotificationsPlugin();
@@ -28,6 +77,11 @@ void callbackDispatcher() {
           android: AndroidInitializationSettings('@mipmap/ic_launcher'),
         ),
       );
+
+      if (task == smsWorkerTask) {
+        return await _runSmsJob(notifications, inputData);
+      }
+      if (task != backgroundSyncTask) return true;
 
       final store = TaskStore();
       await store.load();

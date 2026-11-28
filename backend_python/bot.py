@@ -21,6 +21,12 @@ from telegram.ext import (
     filters,
 )
 
+try:
+    from . import mobile_settings
+except ImportError:  # bot.py also runs directly as a script in the container.
+    import mobile_settings
+
+
 TASK_NAME, TASK_EMPLOYEE, TASK_DESCRIPTION = range(3)
 REPORT_TASK, REPORT_DESCRIPTION = range(7, 9)
 TASK_LIST_SELECT, TASK_LIST_REPORT_DESCRIPTION = range(9, 11)
@@ -128,7 +134,7 @@ def report_authorized(update: Update, settings: dict) -> bool:
     user, chat = update.effective_user, update.effective_chat
     if (user is not None and chat is not None
             and settings.get("group_chat_allowed")
-            and chat.id == settings.get("group_chat_id")):
+            and chat.id in group_chat_ids(settings)):
         return True
     return authorized(update, settings["task_assign_user_ids"] | settings["standard_user_ids"],
                       settings["allowed_chat_ids"])
@@ -153,6 +159,15 @@ def group_settings() -> dict:
     if not ids and (settings["group_chat_allowed"] or settings["report_received_group_chat"]):
         raise ValueError("TELEGRAM_GROUP_CHAT_ID is required when group features are enabled.")
     return settings
+
+
+def group_chat_ids(settings: dict) -> set[int]:
+    """Support multiple editable groups, with a fallback to the old single id."""
+    ids = settings.get("group_chat_ids")
+    if ids is not None:
+        return set(ids)
+    single = settings.get("group_chat_id")
+    return {single} if single is not None else set()
 
 
 def parse_carry(text: str) -> dict[str, str]:
@@ -503,7 +518,7 @@ async def report_select_task(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"Engineer: {engineer_label(task_username(selected_task))}\n\n"
         "Send the report below. New reports will be added after previous reports."
     )
-    if context.bot_data.get("group_chat_allowed") and update.effective_chat.id == context.bot_data.get("group_chat_id"):
+    if context.bot_data.get("group_chat_allowed") and update.effective_chat.id in group_chat_ids(context.bot_data):
         await update.effective_message.reply_text("Reply to this message with your report.", reply_markup=ForceReply())
     return REPORT_DESCRIPTION
 
@@ -564,8 +579,8 @@ async def notify_report_received(
     ])
     failed = 0
     recipients = set(context.bot_data.get("report_received_chat_ids", set()))
-    if context.bot_data.get("report_received_group_chat") and context.bot_data.get("group_chat_id"):
-        recipients.add(context.bot_data["group_chat_id"])
+    if context.bot_data.get("report_received_group_chat"):
+        recipients |= group_chat_ids(context.bot_data)
     for chat_id in sorted(recipients):
         try:
             for chunk in telegram_message_chunks(message):
@@ -776,7 +791,7 @@ async def task_list_report_start(
         f"📝 Report for {task_name(task)}\n\n"
         "Send your report as a message. It will be added to the report history."
     )
-    if context.bot_data.get("group_chat_allowed") and update.effective_chat.id == context.bot_data.get("group_chat_id"):
+    if context.bot_data.get("group_chat_allowed") and update.effective_chat.id in group_chat_ids(context.bot_data):
         await update.effective_message.reply_text("Reply to this message with your report.", reply_markup=ForceReply())
     return TASK_LIST_REPORT_DESCRIPTION
 
@@ -916,6 +931,15 @@ async def end_task_select(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def notify_carried_tasks(context, tasks: list[dict], target_date: str) -> None:
+    weekdays = context.bot_data.get("carry_notify_weekdays")
+    if weekdays is not None:
+        try:
+            day_name = date.fromisoformat(target_date).strftime("%a").lower()
+        except ValueError:
+            day_name = "mon"
+        if day_name not in {str(day).lower() for day in weekdays}:
+            logging.info("Carry ran for %s; Telegram notification skipped for %s.", target_date, day_name)
+            return
     for task in tasks:
         recipients = set()
         assigned_to = task.get("assigned_to", {})
@@ -934,8 +958,8 @@ async def notify_carried_tasks(context, tasks: list[dict], target_date: str) -> 
             recipients.add(recipient)
         else:
             logging.warning("No private chat ID found for carried task %s.", task['id'])
-        if context.bot_data.get("group_chat_allowed") and context.bot_data.get("group_chat_id"):
-            recipients.add(context.bot_data["group_chat_id"])
+        if context.bot_data.get("group_chat_allowed"):
+            recipients |= group_chat_ids(context.bot_data)
         text = f"📋 Task carried to {target_date}\n\n{task_detail_text(task, target_date)}"
         for chat_id in sorted(recipients):
             try:
@@ -1011,13 +1035,28 @@ async def task_rollover_loop(application) -> None:
         await asyncio.sleep(wait_seconds)
 
 
+async def settings_refresh_loop(application) -> None:
+    """Pick up admin changes made from the phone without restarting the bot."""
+    while True:
+        await asyncio.sleep(10)
+        try:
+            application.bot_data.update(mobile_settings.effective_config())
+        except (OSError, ValueError, TypeError):
+            logging.exception("Could not refresh editable access settings.")
+
+
 async def application_post_init(application: Application) -> None:
     application.bot_data["task_rollover_job"] = asyncio.create_task(task_rollover_loop(application))
+    application.bot_data["settings_refresh_job"] = asyncio.create_task(
+        settings_refresh_loop(application)
+    )
 
 
 async def application_post_shutdown(application: Application) -> None:
-    job = application.bot_data.get("task_rollover_job")
-    if job is not None:
+    for key in ("task_rollover_job", "settings_refresh_job"):
+        job = application.bot_data.get(key)
+        if job is None:
+            continue
         job.cancel()
         try:
             await job
@@ -1056,21 +1095,12 @@ def main() -> None:
         token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
         if not token:
             raise ValueError("TELEGRAM_BOT_TOKEN is required.")
-        task_assign_user_ids = allowed_ids(
-            "TELEGRAM_TASK_ASSIGN_USER_IDS", positive_only=True
-        )
-        standard_user_ids = allowed_ids(
-            "TELEGRAM_STANDARD_USER_IDS", positive_only=True
-        )
-        chat_ids = allowed_ids("TELEGRAM_ALLOWED_CHAT_IDS")
-        report_received_chat_ids = allowed_ids("TELEGRAM_REPORT_RECEIVED_CHAT_IDS")
-        group = group_settings()
-        if group["group_chat_allowed"]:
-            chat_ids.add(group["group_chat_id"])
+        group_settings()  # validate the legacy .env group values
+        runtime = mobile_settings.effective_config()
     except ValueError as error:
         raise SystemExit(f"Telegram bot configuration error: {error}") from error
 
-    if not (task_assign_user_ids or standard_user_ids) or not chat_ids:
+    if not (runtime["task_assign_user_ids"] or runtime["standard_user_ids"]) or not runtime["allowed_chat_ids"]:
         logging.warning(
             "User or chat allowlist is empty; authorized bot commands will be denied."
         )
@@ -1082,11 +1112,7 @@ def main() -> None:
         .post_shutdown(application_post_shutdown)
         .build()
     )
-    application.bot_data["task_assign_user_ids"] = task_assign_user_ids
-    application.bot_data["standard_user_ids"] = standard_user_ids
-    application.bot_data["allowed_chat_ids"] = chat_ids
-    application.bot_data["report_received_chat_ids"] = report_received_chat_ids
-    application.bot_data.update(group)
+    application.bot_data.update(runtime)
     task_assign_conversation = ConversationHandler(
         entry_points=[CommandHandler("task_assign", task_assign_start)],
         states={

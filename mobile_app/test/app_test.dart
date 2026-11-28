@@ -26,6 +26,7 @@ void main() {
         reminderStore: reminderStore,
         contactRepository: FakeContactRepository(),
         messageStore: messageStore,
+        smsJobScheduler: FakeSmsJobScheduler(),
       ),
     );
 
@@ -50,6 +51,7 @@ void main() {
         reminderStore: reminderStore,
         contactRepository: FakeContactRepository(),
         messageStore: messageStore,
+        smsJobScheduler: FakeSmsJobScheduler(),
       ),
     );
 

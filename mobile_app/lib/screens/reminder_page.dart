@@ -2,12 +2,21 @@ import 'package:material_ui/material_ui.dart';
 
 import '../format.dart';
 import '../reminder_service.dart';
+import '../sms_job_service.dart';
 import '../reminder_store.dart';
+import '../store.dart';
 
 class ReminderPage extends StatefulWidget {
   final ReminderStore store;
+  final TaskStore taskStore;
+  final SmsJobScheduler smsJobs;
 
-  const ReminderPage({super.key, required this.store});
+  const ReminderPage({
+    super.key,
+    required this.store,
+    required this.taskStore,
+    required this.smsJobs,
+  });
 
   @override
   State<ReminderPage> createState() => _ReminderPageState();
@@ -15,6 +24,9 @@ class ReminderPage extends StatefulWidget {
 
 class _ReminderPageState extends State<ReminderPage> {
   final TextEditingController _label = TextEditingController();
+  final TextEditingController _phone = TextEditingController();
+  String? _taskId;
+  String _taskTitle = '';
   late DateTime _when;
   String _repeat = FlutterReminderScheduler.repeatOnce;
   final Set<int> _weekdays = <int>{};
@@ -53,6 +65,7 @@ class _ReminderPageState extends State<ReminderPage> {
   @override
   void dispose() {
     _label.dispose();
+    _phone.dispose();
     super.dispose();
   }
 
@@ -110,9 +123,17 @@ class _ReminderPageState extends State<ReminderPage> {
       _when,
       repeat: _repeat,
       weekdays: _weekdays.toList()..sort(),
+      phone: _phone.text,
+      taskId: _taskId ?? '',
+      taskTitle: _taskTitle,
     );
+    final created = widget.store.reminders.isEmpty
+        ? null
+        : widget.store.reminders.last;
+    if (created != null) await widget.smsJobs.schedule(created);
     if (!mounted) return;
     _label.clear();
+    _phone.clear();
     setState(() => _saving = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -172,6 +193,48 @@ class _ReminderPageState extends State<ReminderPage> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _phone,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Phone number for SMS',
+                  prefixIcon: Icon(Icons.phone_outlined),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: _taskId,
+                decoration: const InputDecoration(
+                  labelText: 'Linked task card',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  const DropdownMenuItem<String>(
+                    value: null,
+                    child: Text('No task card'),
+                  ),
+                  for (final task in widget.taskStore.allTasks)
+                    DropdownMenuItem<String>(
+                      value: task.id,
+                      child: Text(
+                        task.title,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _taskId = value;
+                    _taskTitle = widget.taskStore.allTasks
+                            .where((task) => task.id == value)
+                            .map((task) => task.title)
+                            .firstOrNull ??
+                        '';
+                  });
+                },
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
@@ -242,12 +305,17 @@ class _ReminderPageState extends State<ReminderPage> {
                   child: ListTile(
                     title: Text(reminder.label),
                     subtitle: Text(
-                      '${dateTimeLabel(reminder.scheduledAt)} · MMT · ${_repeatText(reminder)}',
+                      '${dateTimeLabel(reminder.scheduledAt)} · MMT · ${_repeatText(reminder)}'
+                      '${reminder.phone.isEmpty ? '' : ' · SMS → ${reminder.phone}'}'
+                      '${reminder.taskTitle.isEmpty ? '' : ' · ${reminder.taskTitle}'}',
                     ),
                     trailing: IconButton(
                       tooltip: 'Cancel job',
                       icon: const Icon(Icons.delete_outline),
-                      onPressed: () => widget.store.remove(reminder.id),
+                      onPressed: () async {
+                        await widget.smsJobs.cancel(reminder.id);
+                        await widget.store.remove(reminder.id);
+                      },
                     ),
                   ),
                 ),

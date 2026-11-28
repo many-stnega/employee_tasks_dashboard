@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'admin_models.dart';
 import 'models.dart';
 
 class DataServiceException implements Exception {
@@ -19,11 +20,13 @@ class DataServiceException implements Exception {
 class DataService {
   final String baseUrl;
   final String token;
+  final String adminToken;
   final http.Client _client;
 
   DataService({
     required this.baseUrl,
     required this.token,
+    this.adminToken = '',
     http.Client? client,
   }) : _client = client ?? http.Client();
 
@@ -31,6 +34,12 @@ class DataService {
 
   Map<String, String> get _headers => <String, String>{
         'X-Mobile-Token': token,
+        'Accept': 'application/json',
+      };
+
+  Map<String, String> get _adminHeaders => <String, String>{
+        'X-Mobile-Admin-Token': adminToken,
+        'Content-Type': 'application/json',
         'Accept': 'application/json',
       };
 
@@ -67,6 +76,30 @@ class DataService {
     return log;
   }
 
+  Future<MobileSettings> fetchSettings() async {
+    _checkConfig();
+    final response = await _client
+        .get(uriFor('/api/mobile/settings'), headers: _headers)
+        .timeout(const Duration(seconds: 20));
+    return MobileSettings.fromJson(_decode(response));
+  }
+
+  Future<MobileSettings> saveSettings(MobileSettings settings) async {
+    if (baseUrl.isEmpty || adminToken.isEmpty) {
+      throw const DataServiceException(
+        'Set the server URL and admin token in Settings first.',
+      );
+    }
+    final response = await _client
+        .put(
+          uriFor('/api/mobile/settings'),
+          headers: _adminHeaders,
+          body: jsonEncode(settings.toJson()),
+        )
+        .timeout(const Duration(seconds: 20));
+    return MobileSettings.fromJson(_decode(response));
+  }
+
   void close() => _client.close();
 
   void _checkConfig() {
@@ -83,6 +116,16 @@ class DataService {
     }
     if (response.statusCode == 404) {
       throw const DataServiceException('No record for this date on the server.');
+    }
+    if (response.statusCode == 400) {
+      String detail = 'Server rejected the settings.';
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map && decoded['description'] is String) {
+          detail = decoded['description'] as String;
+        }
+      } catch (_) {}
+      throw DataServiceException(detail);
     }
     if (response.statusCode != 200) {
       throw DataServiceException('Server returned HTTP ${response.statusCode}.');

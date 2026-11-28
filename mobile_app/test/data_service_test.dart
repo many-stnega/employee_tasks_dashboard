@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart';
 import 'package:http/testing.dart';
+import 'package:employee_tasks_mobile/admin_models.dart';
 import 'package:employee_tasks_mobile/data_service.dart';
 
 void main() {
@@ -62,5 +63,48 @@ void main() {
   test('requires server URL and token', () async {
     final service = DataService(baseUrl: '', token: '');
     expect(service.fetchDates(), throwsA(isA<DataServiceException>()));
+  });
+
+  test('fetches editable settings with the read token', () async {
+    final client = MockClient((request) async {
+      expect(request.headers['X-Mobile-Token'], 'secret');
+      return Response(jsonEncode({
+        'users': [],
+        'groups': [],
+        'carry_notify_weekdays': ['mon'],
+        'counts': {'users': 0, 'groups': 0},
+      }), 200);
+    });
+    final service = DataService(
+        baseUrl: 'https://example.com', token: 'secret', client: client);
+    final settings = await service.fetchSettings();
+    expect(settings.carryNotifyWeekdays, ['mon']);
+    expect(settings.counts['users'], 0);
+  });
+
+  test('saves settings with the admin token', () async {
+    String? seenAdminToken;
+    String? seenBody;
+    final client = MockClient((request) async {
+      seenAdminToken = request.headers['X-Mobile-Admin-Token'];
+      seenBody = request.body;
+      return Response(seenBody ?? '{}', 200);
+    });
+    final service = DataService(
+      baseUrl: 'https://example.com',
+      token: 'secret',
+      adminToken: 'admin-secret',
+      client: client,
+    );
+    final settings = MobileSettings(
+      users: const [
+        UserAccess(id: 123, username: 'foo', name: 'Bar', standard: true),
+      ],
+      carryNotifyWeekdays: const ['thu'],
+    );
+    final saved = await service.saveSettings(settings);
+    expect(seenAdminToken, 'admin-secret');
+    expect(seenBody, contains('"id":123'));
+    expect(saved.users.single.name, 'Bar');
   });
 }

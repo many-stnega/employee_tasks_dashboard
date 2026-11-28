@@ -1,5 +1,7 @@
 import 'package:employee_tasks_mobile/contact_repository.dart';
 import 'package:employee_tasks_mobile/message_service.dart';
+import 'package:employee_tasks_mobile/reminder_store.dart';
+import 'package:employee_tasks_mobile/sms_job_service.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 
 class FakeContactRepository implements ContactRepository {
@@ -51,3 +53,19 @@ class FakeSmsGateway implements SmsGateway {
 }
 
 
+
+
+class FakeSmsJobScheduler implements SmsJobScheduler {
+  final List<int> scheduled = <int>[];
+  final List<int> cancelled = <int>[];
+
+  @override
+  Future<void> schedule(Reminder reminder) async {
+    scheduled.add(reminder.id);
+  }
+
+  @override
+  Future<void> cancel(int id) async {
+    cancelled.add(id);
+  }
+}

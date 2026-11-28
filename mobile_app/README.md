@@ -105,7 +105,10 @@ openssl rand -hex 32      # token အသစ်ထုတ်ဖို့
 
 ```dotenv
 MOBILE_API_TOKEN=ဒီနေရာမှာ_token_ထည့်ပါ
+MOBILE_ADMIN_TOKEN=ဒီနေရာမှာ_admin_token_ထည့်ပါ
 ```
+
+Admin token က သီးခြားတစ်ခုဖြစ်ရမယ် (`openssl rand -hex 32` နဲ့ ထပ်ထုတ်ပါ)။ ဖုန်းကနေ user/group/carry settings ပြောင်းဖို့ ဒီ token လိုအပ်တယ်။
 
 Environment ပြောင်းတာမို့ container ကို **recreate** လုပ်ရပါမယ် — `docker compose restart` နဲ့ မဝင်ပါဘူး:
 
@@ -120,6 +123,8 @@ Server ရဲ့ endpoint နှစ်ခုက ဒီလိုပါ:
 | --- | --- |
 | `GET /api/mobile/dates` | `{"dates": ["YYYY-MM-DD", ...]}` |
 | `GET /api/mobile/data/<date>` | `json_data_records/<date>.json` ထဲက အတိုင်း |
+| `GET /api/mobile/settings` | user/group/carry settings + counts (read token) |
+| `PUT /api/mobile/settings` | settings သိမ်း (admin token) |
 
 `X-Mobile-Token` header မပါရင် **401** ပြန်တယ်။ Token မထည့်ထားရင် endpoint တွေ ပိတ်ထားတာနဲ့ အတူတူပါပဲ။
 
@@ -132,6 +137,23 @@ App ကို ဖွင့်ပြီး ညာဘက်အပေါ်က ⚙�
 1. **Dashboard server URL** — ဥပမာ `https://dashboard.example.com` (nginx က port 443 မှာ ရှိတယ်)
 2. **Mobile API token** — အပေါ်က `MOBILE_API_TOKEN` နဲ့ တူတူ
 3. **Sync from server** ကို နှိပ်ပါ (app ဖွင့်တိုင်း အလိုအလျောက်လည်း sync လုပ်တယ်)
+
+### Telegram access & carry settings (admin)
+
+⚙️ Settings → **Telegram access & carry settings** ထဲမှာ —
+
+- **Mobile admin token** ထည့်ပြီး **Load** နှိပ်ပါ။ ပထမအကြိမ်မှာ `.env` ထဲက allowlist တွေကနေ user/group စာရင်း ဖန်တီးပေးပါတယ်။
+- User တစ်ယောက်ချင်းစီမှာ **ID / Username / Display name** နဲ့ role checkbox ၄ ခု ရှိပါတယ်:
+  - `Employee` → `/task_lists`, `/report` သုံးခွင့် (`TELEGRAM_STANDARD_USER_IDS`)
+  - `Manager` → task assign / end (`TELEGRAM_TASK_ASSIGN_USER_IDS`)
+  - `Private chat may use commands` → (`TELEGRAM_ALLOWED_CHAT_IDS`)
+  - `Receives report notifications` → (`TELEGRAM_REPORT_RECEIVED_CHAT_IDS`)
+- **User ကို `/start` မနှိပ်ခင်ကြိုထည့်လို့ရပါတယ်** — username/name ကို အခုပဲ မှတ်ထားပြီးနောက်မှ bot က လက်ခံပါလိမ့်မယ်။
+- Group ထပ်ထည့်လို့ရတယ် (negative chat ID)။ ရှိပြီးသား group လည်း ဒီထဲမှာ ပြောင်းလို့ရတယ်။
+- **Carry notification days** — carry က နေ့တိုင်း လုပ်နေတုန်းပဲ၊ checkbox ချထားတဲ့ weekday တွေမှာပဲ Telegram noti ပို့တယ်။ မချထားတဲ့နေ့က carry လုပ်ပေမယ့် noti မရောက်ဘူး။
+- **Save to server** နှိပ်ပြီး ၁၀ စက္ကန့်အတွင်း bot က အလိုအလျောက် ပြန်ဖတ်သွားပါတယ် (restart မလို)။
+
+Settings ဖိုင်က `json_data_records/mobile_settings.json` (Docker မှာ bind-mounted) ထဲ သိမ်းတယ် — `.env` ကို မထိပါဘူး။ ဖိုင်မရှိသေးရင် `.env` allowlist တွေကိုပဲ သုံးထားတယ်။
 
 ---
 
@@ -233,7 +255,8 @@ Home screen ရဲ့ **ဘယ်ဘက်အပေါ်က ☰ menu** ကိ�
 
 1. **What to remind** — notification မှာ ပြမယ့်စာသား
 2. ရက်နဲ့ အချိန်ကို ရွေးပါ ( နှစ်ခုလုံး **Myanmar Time (MMT)** အတိုင်း အဓိပ္ပာယ်ဖွင့်တယ်)
-3. **Repeat** မှာ တစ်ခု ရွေးပါ:
+3. **Phone number for SMS** ထည့်ပြီး **Linked task card** ကနေ task တစ်ခု ရွေးပါ — job က အဲဒီနံပါတ်ဆီ အဲဒီ task အချက်အလက်ပါ SMS ပို့ပါလိမ့်မယ်။
+4. **Repeat** မှာ တစ်ခု ရွေးပါ:
 
 | ရွေးချယ်မှု | အပြုအမူ |
 | --- | --- |
@@ -241,9 +264,11 @@ Home screen ရဲ့ **ဘယ်ဘက်အပေါ်က ☰ menu** ကိ�
 | `Every day` | တစ်ကြိမ်သတ်မှတ်ပြီးရင် **နောက်ရက်တိုင်း** အဲဒီအချိန်မှာ ထပ်ရောက်တယ် |
 | `Selected weekdays` | ရွေးထားတဲ့ နေ့တွေ (Mon…Sun) မှာ ထပ်ရောက်တယ် — နေ့တစ်ခုချင်းစီအတွက် notification ID သီးခြား သုံးတယ် |
 
-4. **Set job** ကို နှိပ်ပါ။ **SCHEDULED** စာရင်းထဲက မလိုချင်တာကို ညာဘက်က delete icon နဲ့ ဖျက်လို့ရပါတယ်။
+5. **Set job** ကို နှိပ်ပါ။ **SCHEDULED** စာရင်းထဲက မလိုချင်တာကို ညာဘက်က delete icon နဲ့ ဖျက်လို့ရပါတယ်။
 
 App က notification permission နဲ့ exact-alarm permission ကို ဖွင့်တဲ့အခါ တောင်းပါတယ်။ Job တွေက app ပိတ်ထားရင်တောင် notification အဖြစ် ရောက်ပါတယ် (`flutter_local_notifications` + `timezone` သုံးထားတယ်)။ Reboot ပြီးရင် ပြန်လည်သတ်မှတ်ဖို့ boot receiver တွေ manifest ထဲမှာ ထည့်ထားပါတယ်။
+
+SMS ပို့တဲ့ job တွေကို `workmanager` one-off task အဖြစ် စီစဉ်ထားတယ် (`sms-cron-<id>`) — app ပိတ်ထားရင်တောင် background မှာ SMS ပို့နိုင်ပါတယ်။ ထပ်ခါတလဲလဲ job ဆိုရင် ပို့ပြီးတိုင်း နောက်တစ်ခေါက်ကို ပြန်စီစဉ်တယ်။
 
 > UI ကို **Engineer Tasks** လို့ ပြောင်းထားပါတယ်။ Theme (light/dark) ကို Settings ထဲက **APPEARANCE** မှာ ပြောင်းပါတယ် — title bar ထဲက gear icon ကို ဖယ်ထားပါတယ်။
 

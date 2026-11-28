@@ -16,6 +16,7 @@ os.environ.update({
 from backend_python.web_app import create_app
 
 TOKEN = "mobile-token-that-is-long-enough-for-tests-1234"
+ADMIN_TOKEN = "mobile-admin-token-that-is-long-enough-1234"
 
 
 class MobileApiTests(unittest.TestCase):
@@ -31,9 +32,13 @@ class MobileApiTests(unittest.TestCase):
             "WEB_DASHBOARD_SECRET_KEY": "test-session-secret-key-that-is-long-enough",
             "TASKS_DATA_DIR": str(folder),
             "MOBILE_API_TOKEN": TOKEN,
+            "MOBILE_ADMIN_TOKEN": ADMIN_TOKEN,
+            "MOBILE_SETTINGS_PATH": str(folder / "mobile_settings.json"),
         }
-        with patch.dict(os.environ, env):
-            self.client = create_app().test_client()
+        self.env_patch = patch.dict(os.environ, env)
+        self.env_patch.start()
+        self.addCleanup(self.env_patch.stop)
+        self.client = create_app().test_client()
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -72,6 +77,58 @@ class MobileApiTests(unittest.TestCase):
             self.client.get("/api/mobile/data/2026-11-25", headers=headers).status_code,
             404,
         )
+
+    def test_settings_require_admin_token_for_writes(self):
+        payload = {"users": [], "groups": [], "carry_notify_weekdays": ["mon"]}
+        self.assertEqual(
+            self.client.put("/api/mobile/settings", json=payload).status_code, 401
+        )
+        self.assertEqual(
+            self.client.put(
+                "/api/mobile/settings",
+                json=payload,
+                headers={"X-Mobile-Admin-Token": "wrong"},
+            ).status_code,
+            401,
+        )
+
+    def test_settings_round_trip(self):
+        payload = {
+            "users": [{
+                "id": 123, "username": "di_qing_bai", "name": "Phyu",
+                "roles": {"standard": True, "assign": False,
+                          "allowed_chat": True, "report_received": False},
+            }],
+            "groups": [{
+                "id": -100123, "name": "Team",
+                "roles": {"allowed_chat": True, "report_received": False},
+            }],
+            "carry_notify_weekdays": ["mon", "wed", "fri"],
+        }
+        response = self.client.put(
+            "/api/mobile/settings",
+            json=payload,
+            headers={"X-Mobile-Admin-Token": ADMIN_TOKEN},
+        )
+        self.assertEqual(response.status_code, 200)
+        saved = response.get_json()
+        self.assertEqual(saved["users"][0]["name"], "Phyu")
+        self.assertEqual(saved["carry_notify_weekdays"], ["mon", "wed", "fri"])
+
+        read = self.client.get(
+            "/api/mobile/settings", headers={"X-Mobile-Token": TOKEN}
+        )
+        self.assertEqual(read.status_code, 200)
+        self.assertEqual(read.get_json()["counts"]["users"], 1)
+        self.assertEqual(read.get_json()["counts"]["groups"], 1)
+
+    def test_rejects_invalid_settings(self):
+        response = self.client.put(
+            "/api/mobile/settings",
+            json={"users": [{"id": -5}], "groups": [], "carry_notify_weekdays": []},
+            headers={"X-Mobile-Admin-Token": ADMIN_TOKEN},
+        )
+        self.assertEqual(response.status_code, 400)
 
     def test_short_token_is_rejected_at_startup(self):
         env = {
