@@ -1,0 +1,67 @@
+{
+  "date": "2026-11-28",
+  "tasks": [
+    {
+      "id": "20261126-01",
+      "created_at": "2026-11-26T11:13:08+06:30",
+      "task": "Business_Angel ရှာဖွေရေး",
+      "assigned_to": {
+        "username": "Di_Qing_Bai",
+        "user_id": 1605652713
+      },
+      "description": "Github Organization မှာ repo ဆောက်ပြီး နေ့စဥ် ညနေ ၄ နာရီတွင် ပြီးမြောက်ထားသော progress အား ရှင်းလင်းစွာရေးသားပေးပါရန်။ \nGithub Repo ကို ထည့်ပေးပါ။",
+      "status": "active",
+      "updated_at": "2026-11-28T09:00:00+06:30"
+    },
+    {
+      "id": "20261126-02",
+      "created_at": "2026-11-26T11:19:08+06:30",
+      "task": "OpenXR_Gazebo_Integration",
+      "assigned_to": {
+        "username": "DoloresAx",
+        "user_id": 6465664961
+      },
+      "description": "https://github.com/ROM-robotics/openxr_gazebo_plugin\nဒီ repo မှာ ဘာတွေ လုပ်ထားသလဲ \nတစ်ရက်စာ လုပ်ထားတဲ့အပိုင်းတွေကို ရှင်းလင်းစွာ ရေးသား report လုပ်ပေးပါ။",
+      "status": "active",
+      "updated_at": "2026-11-28T09:00:00+06:30"
+    },
+    {
+      "id": "20261126-04",
+      "created_at": "2026-11-26T13:24:25+06:30",
+      "task": "RK3588 SDK တည်ဆောက်ခြင်း နှင့် Vision AI Box Project",
+      "assigned_to": {
+        "username": "kyawswarhtunlinnaung",
+        "user_id": 1425773854
+      },
+      "description": "git@github.com:Open-Source-Robotics-For-Myanmar/Rockstar.git\n\nSDK တည်ဆောက်ပုံနှင့် Cross Build နည်းလမ်းများ \ndemo C++ app နှင့် Vision AI Box Deployment လုပ်ခြင်း",
+      "status": "active",
+      "updated_at": "2026-11-28T09:00:00+06:30"
+    },
+    {
+      "id": "20261127-01",
+      "created_at": "2026-11-27T11:56:30+06:30",
+      "task": "Tracking System with Camera RGB",
+      "assigned_to": {
+        "username": "MKAddison",
+        "user_id": 1614032460
+      },
+      "description": "Tracking \nမှာ AI Model မသုံးပဲဘယ်လိုအလုပ်လုပ်ကြသလဲ?\nAI Model ကိုဘယ်မှာအသုံးပြုသလဲ? \nTracking Framework အမျိုးအစားများ\n\ntracking_analysis repo တည်ဆောက်ပြီး \nစမ်းသပ်မှု နှင့် README folder များထည့်ပြီး မြန်မာလို မှတ်ချက်များရေးပါ။",
+      "status": "active",
+      "updated_at": "2026-11-28T09:00:00+06:30"
+    },
+    {
+      "id": "20261127-02",
+      "created_at": "2026-11-27T12:55:54+06:30",
+      "task": "RobotKit တည်ဆောက်ရေး",
+      "assigned_to": {
+        "username": "ZymE3",
+        "user_id": 1652694056
+      },
+      "description": "RobotKit တည်ဆောက်ရေး အတွက် နေ့စဥ် လုပ်ဆောင်ချက်များ ဖြည့်စွက်ပါ။",
+      "status": "active",
+      "updated_at": "2026-11-28T09:00:00+06:30"
+    }
+  ],
+  "updated_at": "2026-11-28T09:00:00+06:30",
+  "demo": false
+}
