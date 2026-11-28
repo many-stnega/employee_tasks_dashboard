@@ -136,6 +136,15 @@ class _LogPageState extends State<LogPage> {
                   },
                 ),
                 ListTile(
+                  leading: Icon(Icons.history),
+                  title: Text('Log'),
+                  onTap: () {
+                    final navigator = Navigator.of(context);
+                    navigator.pop();
+                    navigator.pushNamed('/activity-log');
+                  },
+                ),
+                ListTile(
                   leading: Icon(Icons.settings_outlined),
                   title: Text('Settings'),
                   onTap: () {

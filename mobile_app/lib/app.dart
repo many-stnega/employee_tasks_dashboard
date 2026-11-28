@@ -6,6 +6,7 @@ import 'reminder_store.dart';
 import 'sms_job_service.dart';
 import 'store.dart';
 import 'theme.dart';
+import 'screens/activity_log_page.dart';
 import 'screens/contacts_page.dart';
 import 'screens/admin_settings_page.dart';
 import 'screens/log_page.dart';
@@ -41,6 +42,7 @@ class TaskApp extends StatelessWidget {
         routes: <String, WidgetBuilder>{
           '/settings': (_) => SettingsPage(store: store),
           '/admin-settings': (_) => AdminSettingsPage(store: store),
+          '/activity-log': (_) => const ActivityLogPage(),
           '/reminders': (_) => ReminderPage(
             store: reminderStore,
             taskStore: store,

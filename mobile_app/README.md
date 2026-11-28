@@ -155,6 +155,10 @@ App ကို ဖွင့်ပြီး ညာဘက်အပေါ်က ⚙�
 
 Settings ဖိုင်က `json_data_records/mobile_settings.json` (Docker မှာ bind-mounted) ထဲ သိမ်းတယ် — `.env` ကို မထိပါဘူး။ ဖိုင်မရှိသေးရင် `.env` allowlist တွေကိုပဲ သုံးထားတယ်။
 
+### Activity Log (ဖုန်းထဲမှာပဲ သိမ်း)
+
+Drawer ☰ → **Log** ထဲမှာ app ဘယ်အချိန်မှာ ဘာလုပ်ခဲ့လဲ ကြည့်လို့ရပါတယ် — sync, background sync, cron/SMS, admin settings ပြောင်းလဲမှု, app ဖွင့်တာတွေ အကုန် MMT အချိန်နဲ့ မှတ်ထားတယ်။ Entry ၅၀၀ ထိ သိမ်းပြီး ညာဘက်အပေါ်က 🗑️ နဲ့ **clear** လုပ်လို့ရပါတယ်။ Server ဆီ ဘာမှ မပို့ပါဘူး။
+
 ---
 
 ## ၆။ APK ထုတ်နည်း (ဘယ်ကစပြီး ဘာရိုက်ရမလဲ)

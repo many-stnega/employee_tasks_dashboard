@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:workmanager/workmanager.dart';
 
+import 'activity_log.dart';
 import 'data_service.dart';
 import 'message_service.dart';
 import 'reminder_service.dart';
@@ -36,6 +37,7 @@ Future<bool> _runSmsJob(
         ? job.label
         : '${job.label}\nTask: ${job.taskTitle}${job.taskId.isEmpty ? '' : ' (${job.taskId})'}';
     await DeviceSmsGateway().send(phone: job.phone, body: body);
+    await activityLog.add('cron', 'Background SMS sent to ${job.phone}.');
     await notifications.show(
       id: 1000000 + (id % 100000),
       title: 'Engineer Tasks',
@@ -54,7 +56,8 @@ Future<bool> _runSmsJob(
       await WorkmanagerSmsJobScheduler().schedule(job);
     }
     return true;
-  } catch (_) {
+  } catch (error) {
+    await activityLog.add('cron', 'Background SMS failed: $error');
     return true;
   }
 }
@@ -83,6 +86,7 @@ void callbackDispatcher() {
       }
       if (task != backgroundSyncTask) return true;
 
+      await activityLog.add('background', 'Background sync started.');
       final store = TaskStore();
       await store.load();
       if (store.serverUrl.isEmpty || store.mobileToken.isEmpty) return true;
@@ -121,6 +125,7 @@ void callbackDispatcher() {
           ),
         ),
       );
+      await activityLog.add('background', 'Notified about new data for $target.');
       return true;
     } catch (_) {
       // Returning true avoids WorkManager retry storms on bad config.

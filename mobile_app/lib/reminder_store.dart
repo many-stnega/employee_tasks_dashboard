@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'activity_log.dart';
 import 'reminder_service.dart';
 
 const String remindersPrefsKey = 'reminders_v1';
@@ -120,6 +121,7 @@ class ReminderStore extends ChangeNotifier {
     );
     _reminders = <Reminder>[..._reminders, reminder];
     await _save();
+    await activityLog.add('cron', 'Scheduled "$text" ($repeat).');
     notifyListeners();
   }
 
@@ -136,6 +138,7 @@ class ReminderStore extends ChangeNotifier {
     }
     _reminders = _reminders.where((item) => item.id != id).toList();
     await _save();
+    await activityLog.add('cron', 'Removed reminder "${reminder.label}".');
     notifyListeners();
   }
 

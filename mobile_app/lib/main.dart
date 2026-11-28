@@ -3,6 +3,7 @@ import 'package:workmanager/workmanager.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'app.dart';
+import 'activity_log.dart';
 import 'app_defaults.dart';
 import 'background_sync.dart';
 import 'contact_repository.dart';
@@ -15,6 +16,8 @@ import 'store.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await activityLog.load();
+  await activityLog.add('app', 'App started.');
   final store = TaskStore();
   await store.applyDefaults(
     serverUrl: defaultServerUrl,

@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../activity_log.dart';
 import '../admin_models.dart';
 import '../data_service.dart';
 import '../store.dart';
@@ -84,6 +85,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
       final loaded = await service.fetchSettings();
       if (!mounted) return;
       setState(() => _settings = loaded);
+      await activityLog.add('admin', 'Loaded user/group/carry settings from server.');
     } on DataServiceException catch (error) {
       if (mounted) setState(() => _message = error.message);
     } finally {
@@ -108,6 +110,11 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
         _settings = saved;
         _message = 'Saved. The bot picks up changes within 10 seconds.';
       });
+      await activityLog.add(
+        'admin',
+        'Saved access settings (${saved.users.length} users, '
+            '${saved.groups.length} groups).',
+      );
     } on DataServiceException catch (error) {
       if (mounted) setState(() => _message = error.message);
     } finally {

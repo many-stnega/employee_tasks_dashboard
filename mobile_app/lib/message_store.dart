@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'activity_log.dart';
 import 'message_service.dart';
 
 const String sentMessagesPrefsKey = 'sent_messages_v1';
@@ -66,6 +67,7 @@ class MessageStore extends ChangeNotifier {
     final text = body.trim();
     if (number.isEmpty || text.isEmpty) return;
     await gateway.send(phone: number, body: text);
+    await activityLog.add('sms', 'SMS sent to $number.');
     final message = SentMessage(
       id: DateTime.now().microsecondsSinceEpoch % 1000000000,
       phone: number,
