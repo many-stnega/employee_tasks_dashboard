@@ -237,6 +237,8 @@ Server json_data_records ──(GET /api/mobile/data/<date>)──▶ App ──
 | Gradle က NDK/platform ပြန်ဆွဲနေတယ် | `android/gradle.properties` ထဲက `android.builder.sdkDownload=false` ကို ဖြေထားမိမိ စစ်ပါ |
 | ထူးဆန်းတဲ့ build error | `flutter clean && flutter pub get && flutter build apk --debug` ပြန်လုပ်ပါ |
 | 404 | Server URL မှန်မမှန်၊ nginx က 443 မှာ အလုပ်လုပ်နေလား စစ်ပါ |
+| "No active SIM card found" | SIM ထည့်ထားပြီးဆိုရင် **Phone (READ_PHONE_STATE)** permission ကို ခွင့်ပြုထားလား စစ်ပါ — မပါရင် plugin က SIM ကို မမြင်ဘူး။ တကယ် SIM မပါရင် ထည့်ပါ။ Log ထဲမှာ အကြောင်းရင်း မှတ်ထားတယ်။ |
+| Background cron SMS မပို့နိုင် | `sms_sender` plugin က Activity လိုအပ်တယ် — app ဖွင့်ပြီး Messages ကနေ ပို့ရင် အဆင်ပြေပါတယ် |
 
 ---
 

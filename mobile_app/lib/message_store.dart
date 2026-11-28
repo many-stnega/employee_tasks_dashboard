@@ -66,7 +66,12 @@ class MessageStore extends ChangeNotifier {
     final number = phone.trim();
     final text = body.trim();
     if (number.isEmpty || text.isEmpty) return;
-    await gateway.send(phone: number, body: text);
+    try {
+      await gateway.send(phone: number, body: text);
+    } catch (error) {
+      await activityLog.add('sms', 'Failed to send to $number: $error');
+      rethrow;
+    }
     await activityLog.add('sms', 'SMS sent to $number.');
     final message = SentMessage(
       id: DateTime.now().microsecondsSinceEpoch % 1000000000,
